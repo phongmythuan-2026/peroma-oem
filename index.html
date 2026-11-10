@@ -4023,7 +4023,7 @@
               costSheet.cell('E20').value('Đơn giá (đ)');
               costSheet.cell('F20').value('Thành tiền (đ)');
               writeCostRows(categories.baoBi, 21, 5, { detail: row => row.dvtVatTu });
-              costSheet.cell('A26').value('Tổng chi phí bao bì / 1 sản phẩm (C)');
+              costSheet.cell('A26').value('Tổng chi phí bao bì (C)');
               costSheet.cell('F26').value(totalOf(categories.baoBi));
 
               const fixedCosts = [
@@ -4039,18 +4039,33 @@
                 costSheet.cell(`F${rowNumber}`).value(amount);
               });
               const fixedTotal = fixedCosts.reduce((sum, entry) => sum + entry[1], 0);
-              const productionCost = Number(project.giaSanXuat) || totalOf(rows);
-              const profit = unitPrice - productionCost;
+              const totalProductionCost = totalOf(categories.nguyenLieu) + totalOf(categories.baoBi) + fixedTotal;
+              const unitProductionCost = totalProductionCost / quantity;
+              const profit = unitPrice - unitProductionCost;
               costSheet.cell('A32').value('Tổng chi phí sản xuất và chi phí khác (D)');
               costSheet.cell('F32').value(fixedTotal);
+              const summaryStyles = ['bold', 'italic', 'fontSize', 'fontFamily', 'fontColor', 'fill', 'numberFormat', 'horizontalAlignment', 'verticalAlignment', 'border'];
+              const copySummaryStyles = (sourceRow, targetRow) => {
+                ['A', 'B', 'C', 'D', 'E', 'F'].forEach(column => {
+                  const source = costSheet.cell(`${column}${sourceRow}`);
+                  const target = costSheet.cell(`${column}${targetRow}`);
+                  summaryStyles.forEach(style => target.style(style, source.style(style)));
+                });
+              };
+              copySummaryStyles(38, 39);
+              costSheet.range('A39:E39').merged(true);
+              copySummaryStyles(37, 38);
+              copySummaryStyles(35, 36);
               costSheet.cell('A35').value('TỔNG GIÁ THÀNH SẢN XUẤT THỰC TẾ');
-              costSheet.cell('F35').value(productionCost);
-              costSheet.cell('A36').value(`Lợi nhuận theo ${Number(project.giaDuyet) > 0 ? 'giá duyệt' : 'giá khách hàng yêu cầu'}`);
-              costSheet.cell('F36').value(profit);
-              costSheet.cell('A37').value('Chi phí bổ sung ngoài danh mục');
-              costSheet.cell('F37').value(0);
-              costSheet.cell('A38').value('ĐƠN GIÁ BÁO GIÁ SẢN XUẤT (CHƯA VAT)');
-              costSheet.cell('F38').value(unitPrice);
+              costSheet.cell('F35').value(totalProductionCost);
+              costSheet.cell('A36').value('Giá thành / 1 đơn vị sản phẩm');
+              costSheet.cell('F36').value(unitProductionCost);
+              costSheet.cell('A37').value(`Lợi nhuận / 1 đơn vị sản phẩm theo ${Number(project.giaDuyet) > 0 ? 'giá duyệt' : 'giá khách hàng yêu cầu'}`);
+              costSheet.cell('F37').value(profit);
+              costSheet.cell('A38').value('Chi phí bổ sung ngoài danh mục / 1 đơn vị sản phẩm');
+              costSheet.cell('F38').value(0);
+              costSheet.cell('A39').value('ĐƠN GIÁ BÁO GIÁ SẢN XUẤT (CHƯA VAT)');
+              costSheet.cell('F39').value(unitPrice);
 
               const btpSheet = workbook.sheet('BTP');
               if (!btpSheet) throw new Error('File mẫu thiếu sheet BTP.');
