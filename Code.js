@@ -102,11 +102,12 @@ function checkLogin(maNV, matKhau) {
     const ss = SpreadsheetApp.getActiveSpreadsheet(); const sheetUsers = ss.getSheetByName('Users');
     if (!sheetUsers) return { success: false, message: "Không tìm thấy sheet 'Users'!" };
     const data = sheetUsers.getDataRange().getValues();
+    const displayedEmployeeCodes = sheetUsers.getRange(1, 1, sheetUsers.getLastRow(), 1).getDisplayValues();
     const cleanMaNV = String(maNV || "").trim().toLowerCase(); const cleanInputPass = String(matKhau || "").trim();
     const inputPassHash = hashPasswordSha256(cleanInputPass);
 
     for (let i = 1; i < data.length; i++) {
-      const rowMaNV = String(data[i][0] || "").replace(/^'/, '').trim().toLowerCase();
+      const rowMaNV = String(displayedEmployeeCodes[i][0] || data[i][0] || "").replace(/^'/, '').trim().toLowerCase();
       const rowPass = String(data[i][1] || "").replace(/^'/, '').trim();
       
       if (rowMaNV === cleanMaNV) {
@@ -114,7 +115,7 @@ function checkLogin(maNV, matKhau) {
         const isMatchRaw = (rowPass === cleanInputPass);
         if (isMatchHash || isMatchRaw) {
           if (!isMatchHash && isMatchRaw) sheetUsers.getRange(i + 1, 2).setValue("'" + inputPassHash);
-          const u = { maNV: data[i][0], hoTen: String(data[i][2] || data[i][0]).trim(), chucVu: String(data[i][3] || "").trim().toLowerCase(), bp: String(data[i][4] || "").trim() };
+          const u = { maNV: rowMaNV, hoTen: String(data[i][2] || rowMaNV).trim(), chucVu: String(data[i][3] || "").trim().toLowerCase(), bp: String(data[i][4] || "").trim() };
           writeSystemLog(u.maNV, `${u.hoTen} (${u.bp})`, "HỆ THỐNG", "ĐĂNG NHẬP", u.maNV, "Thành công");
           return { success: true, user: u };
         }
@@ -146,7 +147,14 @@ function changePassword(maNV, oldPass, newPass) {
 
 function getUserList() {
   const ss = SpreadsheetApp.getActiveSpreadsheet(); const sheetUsers = ss.getSheetByName('Users'); if (!sheetUsers) return [];
-  return sheetUsers.getDataRange().getValues().slice(1).filter(r => r[0]).map(r => ({ maNV: String(r[0]).replace(/^'/, '').trim(), hoTen: String(r[2] || "").trim(), bp: String(r[4] || "").trim() }));
+  if (sheetUsers.getLastRow() <= 1) return [];
+  const data = sheetUsers.getDataRange().getValues();
+  const displayedEmployeeCodes = sheetUsers.getRange(1, 1, sheetUsers.getLastRow(), 1).getDisplayValues();
+  return data.slice(1).filter((row, index) => row[0] || displayedEmployeeCodes[index + 1][0]).map((row, index) => ({
+    maNV: String(displayedEmployeeCodes[index + 1][0] || row[0] || '').replace(/^'/, '').trim(),
+    hoTen: String(row[2] || "").trim(),
+    bp: String(row[4] || "").trim()
+  }));
 }
 
 function formatUserDisplay(user) {
@@ -157,11 +165,26 @@ function formatUserDisplay(user) {
   return bp ? `${identity} (${bp})` : identity;
 }
 
+function normalizeEmployeeCode(value) {
+  const code = String(value == null ? '' : value).replace(/^'/, '').trim().toLowerCase();
+  return /^\d+$/.test(code) ? code.replace(/^0+(?=\d)/, '') : code;
+}
+
 function buildUserDisplayMap() {
   const displayMap = {};
+  const numericAliases = {};
   getUserList().forEach(user => {
     const key = String(user.maNV || '').toLowerCase();
-    if (key) displayMap[key] = formatUserDisplay(user);
+    if (!key) return;
+    displayMap[key] = formatUserDisplay(user);
+    const numericKey = normalizeEmployeeCode(key);
+    if (/^\d+$/.test(numericKey)) {
+      if (numericAliases[numericKey] && numericAliases[numericKey] !== key) numericAliases[numericKey] = '';
+      else numericAliases[numericKey] = key;
+    }
+  });
+  Object.keys(numericAliases).forEach(key => {
+    if (numericAliases[key]) displayMap[key] = displayMap[numericAliases[key]];
   });
   return displayMap;
 }
@@ -1008,6 +1031,17 @@ function getTinhGiaColumnMap(sheet) {
   };
 }
 
+function writeTinhGiaRows(sheet, startRow, rows) {
+  if (!rows.length) return;
+  const values = rows.map(source => {
+    const row = source.slice();
+    row[11] = String(row[11] == null ? '' : row[11]).replace(/^'/, '').trim();
+    return row;
+  });
+  sheet.getRange(startRow, 12, values.length, 1).setNumberFormat('@');
+  sheet.getRange(startRow, 1, values.length, values[0].length).setValues(values);
+}
+
 function getCatalogUsageMaps() {
   const usage = {
     quoteIds: new Set(),
@@ -1300,7 +1334,7 @@ function saveTinhGiaItem(formData, loggedUser) {
     const today = new Date();
     const id = existingIndex >= 0 ? String(formData.id) : Utilities.getUuid();
     const isNewVoucher = sameVoucherRows.length === 0;
-    const creator = isNewVoucher ? "'" + String(loggedUser.maNV || "").trim() : rows[existingIndex >= 0 ? existingIndex : rows.findIndex(row => String(row[1] || "").trim() === voucher)][11];
+    const creator = isNewVoucher ? String(loggedUser.maNV || "").replace(/^'/, "").trim() : rows[existingIndex >= 0 ? existingIndex : rows.findIndex(row => String(row[1] || "").trim() === voucher)][11];
     const createdAt = isNewVoucher ? today : rows[existingIndex >= 0 ? existingIndex : rows.findIndex(row => String(row[1] || "").trim() === voucher)][12];
     const status = isNewVoucher ? "Chờ trình giá" : String(sameVoucherRows[0][15] || "Chờ trình giá").trim();
     const row = existingIndex >= 0 ? rows[existingIndex].slice() : new Array(sheet.getLastColumn()).fill("");
@@ -1314,8 +1348,7 @@ function saveTinhGiaItem(formData, loggedUser) {
     row[8] = 0;
     if (columnMap.idYeuCauGia >= 0) row[columnMap.idYeuCauGia] = "";
     if (columnMap.ngayCapNhat >= 0) row[columnMap.ngayCapNhat] = today;
-    if (existingIndex >= 0) sheet.getRange(existingIndex + 2, 1, 1, row.length).setValues([row]);
-    else sheet.appendRow(row);
+    writeTinhGiaRows(sheet, existingIndex >= 0 ? existingIndex + 2 : sheet.getLastRow() + 1, [row]);
     const updatedRows = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
     updatedRows.forEach((savedRow, index) => {
       if (String(savedRow[1] || "").trim() !== voucher) return;
@@ -1324,8 +1357,9 @@ function saveTinhGiaItem(formData, loggedUser) {
       sheet.getRange(rowNumber, 9).setValue(0);
       sheet.getRange(rowNumber, 20, 1, 2).clearContent();
       sheet.getRange(rowNumber, 3, 1, 2).setValues([[projectCode, projectQuantity]]);
-      sheet.getRange(rowNumber, 12, 1, 3).setValues([[
-        savedRow[11] || creator,
+      sheet.getRange(rowNumber, 12).setNumberFormat('@');
+      sheet.getRange(rowNumber, 12).setValue(String(savedRow[11] || creator).replace(/^'/, '').trim());
+      sheet.getRange(rowNumber, 13, 1, 2).setValues([[
         savedRow[12] || createdAt || today,
         savedRow[13] || ""
       ]]);
@@ -1572,7 +1606,7 @@ function cloneTinhGiaProject(sourceSoPhieu, newMaDuan, newTenDuan, newSoLuong, l
       copy[16] = customerCode;
       copy[17] = Number(newGiaKH) || 0;
       copy[18] = 0;
-      copy[11] = "'" + String(loggedUser.maNV || "").trim();
+      copy[11] = String(loggedUser.maNV || "").replace(/^'/, "").trim();
       copy[12] = today;
       copy[13] = "";
       copy[14] = "";
@@ -1585,7 +1619,7 @@ function cloneTinhGiaProject(sourceSoPhieu, newMaDuan, newTenDuan, newSoLuong, l
       if (columnMap.ngayCapNhat >= 0) copy[columnMap.ngayCapNhat] = today;
       return copy;
     });
-    sheet.getRange(sheet.getLastRow() + 1, 1, copies.length, copies[0].length).setValues(copies);
+    writeTinhGiaRows(sheet, sheet.getLastRow() + 1, copies);
     updateTinhGiaProjectQuoteStatus(sheet, newVoucher);
     writeSystemLog(loggedUser.maNV, loggedUser.hoTen, "TÍNH GIÁ OEM", "NHÂN BẢN", newVoucher, `Nhân bản ${copies.length} dòng từ ${sourceVoucher}`);
     return { success: true, soPhieu: newVoucher, message: `Đã nhân bản ${copies.length} dòng thành phiếu ${newVoucher}.` };
@@ -1660,7 +1694,7 @@ function importTinhGiaFromExcelData(rowsArray, loggedUser) {
     }
     const newVoucher = generateTinhGiaVoucher();
     const today = new Date();
-    const creator = "'" + String(loggedUser.maNV || "").trim();
+    const creator = String(loggedUser.maNV || "").replace(/^'/, "").trim();
     const width = sheet.getLastColumn();
     const output = prepared.map(item => {
       const row = new Array(width).fill("");
@@ -1672,7 +1706,7 @@ function importTinhGiaFromExcelData(rowsArray, loggedUser) {
       if (columnMap.ngayCapNhat >= 0) row[columnMap.ngayCapNhat] = today;
       return row;
     });
-    sheet.getRange(sheet.getLastRow() + 1, 1, output.length, width).setValues(output);
+    writeTinhGiaRows(sheet, sheet.getLastRow() + 1, output);
     updateTinhGiaProjectQuoteStatus(sheet, newVoucher);
     writeSystemLog(loggedUser.maNV, loggedUser.hoTen, "TÍNH GIÁ OEM", "IMPORT", newVoucher, `Import ${output.length} dòng chi phí`);
     return { success: true, message: `Đã import ${output.length} dòng thành phiếu ${newVoucher}.` };

@@ -2941,12 +2941,14 @@
         project.rows.push(item);
         const amount = Number(item.thanhTien) || 0;
         project.tongChiPhi += amount;
-        const category = getTgCostCategory(item.nhom);
-        if (category) project.chiPhi[category] += amount;
+        const category = getTgCostCategory(item.nhom) || 'chiPhiKhac';
+        project.chiPhi[category] += amount;
       });
       return [...map.values()].map(project => {
         const first = project.rows[0];
-        const productionCost = project.tongChiPhi;
+        const quantity = Number(first.soLuong) || 0;
+        const totalCost = Object.values(project.chiPhi).reduce((total, amount) => total + amount, 0);
+        const productionCost = quantity > 0 ? totalCost / quantity : 0;
         const requestedPrice = Number(first.giaKH) || 0;
         const approvedPrice = Number(first.giaDuyet) || 0;
         return {
@@ -2954,6 +2956,7 @@
           key: project.key,
           rows: project.rows,
           chiPhi: project.chiPhi,
+          tongChiPhi: totalCost,
           giaSanXuat: productionCost,
           lnDuKien: calculateTgMarginPercent(requestedPrice, productionCost),
           lnDuyet: calculateTgMarginPercent(approvedPrice, productionCost),
@@ -3007,7 +3010,7 @@
           <td>${project.dvtDuan || ''}</td><td class="text-end">${formatNum(project.soLuong, 2)}</td>
           <td class="text-end">${money(project.chiPhi.nguyenLieu)}</td><td class="text-end">${money(project.chiPhi.baoBi)}</td>
           <td class="text-end">${money(project.chiPhi.nhanCong)}</td><td class="text-end">${money(project.chiPhi.khauHao)}</td><td class="text-end">${money(project.chiPhi.chiPhiKhac)}</td>
-          <td class="text-end fw-bold text-danger">${money(project.giaSanXuat)}</td><td class="text-end">${money(project.giaKH)}</td>
+          <td class="text-end fw-bold text-danger">${money(project.tongChiPhi)}</td><td class="text-end">${money(project.giaKH)}</td>
           <td class="text-end">${formatNum(project.lnDuKien, 2)}%</td><td class="text-end">${money(project.giaDuyet)}</td>
           <td class="text-end">${formatNum(project.lnDuyet, 2)}%</td><td class="small text-wrap-cell">${displaySensitiveText(project.ghiChuDuAn)}</td>
           <td>${project.displayTao || project.nguoiTao || ''}</td><td>${project.ngayCapNhat || project.ngayTao || ''}</td>
@@ -3998,7 +4001,7 @@
                 ['Nhóm chi phí chưa phân loại', totalOf(categories.khac)]
               ];
               fixedCosts.forEach(([label, amount], index) => {
-                const rowNumber = 29 + index;
+                const rowNumber = 28 + index;
                 costSheet.cell(`A${rowNumber}`).value(index + 1);
                 costSheet.cell(`B${rowNumber}`).value(label);
                 costSheet.cell(`F${rowNumber}`).value(amount);
@@ -4006,16 +4009,16 @@
               const fixedTotal = fixedCosts.reduce((sum, entry) => sum + entry[1], 0);
               const productionCost = Number(project.giaSanXuat) || totalOf(rows);
               const profit = unitPrice - productionCost;
-              costSheet.cell('A33').value('Tổng chi phí sản xuất và chi phí khác (D)');
-              costSheet.cell('F33').value(fixedTotal);
-              costSheet.cell('A36').value('TỔNG GIÁ THÀNH SẢN XUẤT THỰC TẾ');
-              costSheet.cell('F36').value(productionCost);
-              costSheet.cell('A37').value(`Lợi nhuận theo ${Number(project.giaDuyet) > 0 ? 'giá duyệt' : 'giá khách hàng yêu cầu'}`);
-              costSheet.cell('F37').value(profit);
-              costSheet.cell('A38').value('Chi phí bổ sung ngoài danh mục');
-              costSheet.cell('F38').value(0);
-              costSheet.cell('A39').value('ĐƠN GIÁ BÁO GIÁ SẢN XUẤT (CHƯA VAT)');
-              costSheet.cell('F39').value(unitPrice);
+              costSheet.cell('A32').value('Tổng chi phí sản xuất và chi phí khác (D)');
+              costSheet.cell('F32').value(fixedTotal);
+              costSheet.cell('A35').value('TỔNG GIÁ THÀNH SẢN XUẤT THỰC TẾ');
+              costSheet.cell('F35').value(productionCost);
+              costSheet.cell('A36').value(`Lợi nhuận theo ${Number(project.giaDuyet) > 0 ? 'giá duyệt' : 'giá khách hàng yêu cầu'}`);
+              costSheet.cell('F36').value(profit);
+              costSheet.cell('A37').value('Chi phí bổ sung ngoài danh mục');
+              costSheet.cell('F37').value(0);
+              costSheet.cell('A38').value('ĐƠN GIÁ BÁO GIÁ SẢN XUẤT (CHƯA VAT)');
+              costSheet.cell('F38').value(unitPrice);
 
               const btpSheet = workbook.sheet('BTP');
               if (!btpSheet) throw new Error('File mẫu thiếu sheet BTP.');
@@ -4120,7 +4123,7 @@
         'Đvt dự án': project.dvtDuan, 'Số lượng': project.soLuong,
         'Nguyên liệu': project.chiPhi.nguyenLieu, 'Bao bì': project.chiPhi.baoBi,
         'Nhân công': project.chiPhi.nhanCong, 'Khấu hao': project.chiPhi.khauHao, 'Chi phí khác': project.chiPhi.chiPhiKhac,
-        'Tổng cộng': project.giaSanXuat, 'Giá KH YC': project.giaKH, 'LN dự kiến (%)': project.lnDuKien,
+        'Tổng cộng': project.tongChiPhi, 'Giá KH YC': project.giaKH, 'LN dự kiến (%)': project.lnDuKien,
         'Giá duyệt': project.giaDuyet, 'LN duyệt (%)': project.lnDuyet,
         'Ghi chú': project.ghiChuDuAn, 'Người tạo': project.displayTao || project.nguoiTao,
         'Ngày cập nhật': project.ngayCapNhat, 'Người duyệt': project.displayDuyet || project.nguoiDuyet || '-',
