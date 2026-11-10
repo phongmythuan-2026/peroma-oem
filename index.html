@@ -838,7 +838,7 @@
       const menu = trigger.nextElementSibling;
       if (!menu) return;
       if (!menu.dataset.prepared) {
-        const labels = { 'fa-eye': 'Xem', 'fa-copy': 'Nhân bản', 'fa-pen': 'Sửa', 'fa-trash': 'Xóa', 'fa-check': 'Tiếp nhận', 'fa-tag': 'Yêu cầu báo giá', 'fa-stamp': 'Duyệt', 'fa-paper-plane': 'Trình giá', 'fa-arrow-rotate-left': 'Hủy trình giá', 'fa-arrow-up-right-from-square': 'Mở phân hệ' };
+        const labels = { 'fa-eye': 'Xem', 'fa-copy': 'Nhân bản', 'fa-pen': 'Sửa', 'fa-trash': 'Xóa', 'fa-check': 'Tiếp nhận', 'fa-tag': 'Yêu cầu báo giá', 'fa-stamp': 'Duyệt', 'fa-paper-plane': 'Trình giá', 'fa-file-invoice-dollar': 'Tạo bảng giá', 'fa-arrow-rotate-left': 'Hủy trình giá', 'fa-arrow-up-right-from-square': 'Mở phân hệ' };
         menu.querySelectorAll('button').forEach(button => {
           const icon = button.querySelector('i');
           const iconName = icon && Array.from(icon.classList).find(className => labels[className]);
@@ -3019,7 +3019,10 @@
         }
         if (canManage && submitted && isTgProjectCreator(project)) actions += `<button class="btn btn-outline-secondary py-0 px-2" title="Hủy trình giá" onclick="changeTinhGiaProjectStatusFromList(decodeURIComponent('${key}'),'Chờ trình giá')"><i class="fa-solid fa-arrow-rotate-left"></i></button>`;
         if (!isDemoReadOnly() && currentUser && String(currentUser.chucVu).trim().toLowerCase() === 'bod' && submitted) actions += `<button class="btn btn-outline-success py-0 px-2" title="Duyệt giá" data-menu-label="Duyệt giá" onclick="openTinhGiaProject(decodeURIComponent('${key}'))"><i class="fa-solid fa-stamp"></i></button>`;
-        if (canManage) actions += `<button class="btn btn-outline-info py-0 px-2" title="Nhân bản" onclick="cloneTinhGiaProjectFromUi(decodeURIComponent('${key}'))"><i class="fa-solid fa-copy"></i></button>`;
+        if (canManage) {
+          actions += `<button class="btn btn-outline-info py-0 px-2" title="Nhân bản" onclick="cloneTinhGiaProjectFromUi(decodeURIComponent('${key}'))"><i class="fa-solid fa-copy"></i></button>`;
+          actions += `<button class="btn btn-outline-primary py-0 px-2" title="Tạo bảng giá" onclick="createQuoteFromTgList(decodeURIComponent('${key}'), this)"><i class="fa-solid fa-file-invoice-dollar"></i></button>`;
+        }
         const statusClass = approved ? 'success' : submitted ? 'primary' : project.trangThai === 'Hủy trình giá' ? 'secondary' : 'warning';
         const money = value => formatNum(value, 0);
         const unitCosts = getTgUnitCosts(project);
@@ -3915,15 +3918,22 @@
       );
     }
     function createQuoteFromTgForm() {
+      const project = activeTgProject && (getTgProjects(fullTgData).find(item => item.key === activeTgProject.key) || activeTgProject);
+      return createQuoteFromTgProject(project, document.getElementById('tg-project-create-quote-button'));
+    }
+    function createQuoteFromTgList(voucher, button) {
+      const project = getTgProjects(fullTgData).find(item => item.key === String(voucher));
+      if (!project) return showAlert('Không tìm thấy phiếu tính giá ' + voucher, true);
+      return createQuoteFromTgProject(project, button);
+    }
+    function createQuoteFromTgProject(project, button) {
       if (isDemoReadOnly() || !currentUser || !['quanly', 'bod'].includes(String(currentUser.chucVu).trim().toLowerCase())) return showAlert('Bạn không có quyền tạo báo giá.', true);
-      if (!activeTgProject || !activeTgProject.rows || !activeTgProject.rows.length) return showAlert('Phiếu tính giá chưa có dòng chi phí.', true);
-      const project = getTgProjects(fullTgData).find(item => item.key === activeTgProject.key) || activeTgProject;
+      if (!project || !project.rows || !project.rows.length) return showAlert('Phiếu tính giá chưa có dòng chi phí.', true);
       const quantity = Number(project.soLuong) || 0;
       const unitPrice = Number(project.giaDuyet) > 0 ? Number(project.giaDuyet) : Number(project.giaKH) || 0;
       if (quantity <= 0) return showAlert('Vui lòng nhập số lượng đơn hàng trước khi tạo báo giá.', true);
       if (unitPrice <= 0) return showAlert('Vui lòng nhập Giá KH yêu cầu hoặc Giá duyệt trước khi tạo báo giá.', true);
 
-      const button = document.getElementById('tg-project-create-quote-button');
       const originalHtml = button ? button.innerHTML : '';
       const finish = () => {
         if (!button) return;
