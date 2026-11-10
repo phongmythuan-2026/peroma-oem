@@ -555,7 +555,7 @@
           <button class="btn btn-warning btn-sm px-3 text-dark" type="button" onclick="openTinhGiaProjectEditor()"><i class="fa-solid fa-plus me-1"></i>Tạo phiếu tính giá</button>
         </div>
         <div class="erp-form-container d-none" id="tg-form-card">
-          <div class="erp-form-header"><span id="tg-form-title" class="fw-semibold text-warning"><i class="fa-solid fa-calculator"></i> Phiếu tính giá OEM</span><div class="d-flex gap-2" id="tg-form-edit-actions"><button class="btn btn-outline-warning btn-sm py-1 px-3" id="tg-btn-save-master" onclick="handleSaveTinhGiaMaster()">Lưu thông tin phiếu</button><button class="btn btn-warning btn-sm py-1 px-3 text-dark d-none" id="tg-btn-save" onclick="handleSaveTinhGia()">Lưu chi tiết</button><button id="tg-btn-cancel-edit" class="btn btn-sm btn-outline-secondary py-1 px-3 d-none" onclick="cancelEditTinhGia()">Hủy sửa dòng</button></div></div>
+          <div class="erp-form-header"><span id="tg-form-title" class="fw-semibold text-warning"><i class="fa-solid fa-calculator"></i> Phiếu tính giá OEM</span><div class="d-flex gap-2"><button type="button" class="btn btn-outline-primary btn-sm py-1 px-3 d-none" id="tg-project-edit-button" onclick="openTinhGiaProject(activeTgProject.key, true)" title="Sửa phiếu" aria-label="Sửa phiếu"><i class="fa-solid fa-pen"></i></button><div class="d-flex gap-2" id="tg-form-edit-actions"><button class="btn btn-outline-warning btn-sm py-1 px-3" id="tg-btn-save-master" onclick="handleSaveTinhGiaMaster()">Lưu thông tin phiếu</button><button class="btn btn-warning btn-sm py-1 px-3 text-dark d-none" id="tg-btn-save" onclick="handleSaveTinhGia()">Lưu chi tiết</button><button id="tg-btn-cancel-edit" class="btn btn-sm btn-outline-secondary py-1 px-3 d-none" onclick="cancelEditTinhGia()">Hủy sửa dòng</button></div></div></div>
           <input type="hidden" id="tg-editRowId">
           <input type="hidden" id="tg-hidden-donGia" value="0">
           <section class="mb-3">
@@ -3006,7 +3006,7 @@
       if (tgPage > totalPages) tgPage = totalPages;
       const start = (tgPage - 1) * tgPageSize;
       const pageData = filteredTgData.slice(start, start + tgPageSize);
-      const canManage = !isDemoReadOnly() && currentUser && ['quanly', 'bod'].includes(String(currentUser.chucVu).toLowerCase());
+      const canManage = !isDemoReadOnly() && currentUser && ['quanly', 'bod'].includes(String(currentUser.chucVu).trim().toLowerCase());
       tbody.innerHTML = pageData.map(project => {
         const key = encodeURIComponent(project.key);
         let actions = `<button class="btn btn-outline-secondary py-0 px-2" title="Xem phiếu" onclick="openTinhGiaProject(decodeURIComponent('${key}'))"><i class="fa-solid fa-eye"></i></button>`;
@@ -3152,13 +3152,14 @@
       }
     }
     function updateTinhGiaModalActions() {
-      const allowed = !isDemoReadOnly() && currentUser && ['quanly', 'bod'].includes(String(currentUser.chucVu).toLowerCase());
+      const allowed = !isDemoReadOnly() && currentUser && ['quanly', 'bod'].includes(String(currentUser.chucVu).trim().toLowerCase());
       const isBod = !isDemoReadOnly() && currentUser && String(currentUser.chucVu).trim().toLowerCase() === 'bod';
       const hasRows = activeTgProject && activeTgProject.rows && activeTgProject.rows.length > 0;
       const status = activeTgProject && activeTgProject.trangThai;
       const approved = isTgApprovedStatus(status);
       const submitted = isTgSubmittedStatus(status);
       const isCreator = isTgProjectCreator(activeTgProject);
+      document.getElementById('tg-project-edit-button').classList.toggle('d-none', !allowed || !hasRows || approved || submitted || activeTgProjectEditMode);
       let quoteButton = document.getElementById('tg-project-create-quote-button');
       if (!quoteButton) {
         quoteButton = document.createElement('button');
@@ -3202,7 +3203,7 @@
       if (!activeTgProject) return;
       const rows = applyModernTableSort('tgChild', fullTgData.filter(row => row.soPhieu === activeTgProject.key));
       const tbody = document.getElementById('tg-child-table-body');
-      const canEdit = activeTgProjectEditMode && currentUser && ['quanly', 'bod'].includes(String(currentUser.chucVu).toLowerCase()) && !isTgApprovedStatus(activeTgProject.trangThai) && !isTgSubmittedStatus(activeTgProject.trangThai);
+      const canEdit = activeTgProjectEditMode && currentUser && ['quanly', 'bod'].includes(String(currentUser.chucVu).trim().toLowerCase()) && !isTgApprovedStatus(activeTgProject.trangThai) && !isTgSubmittedStatus(activeTgProject.trangThai);
       const editingId = String(document.getElementById('tg-editRowId').value || '');
       const addRowVisible = canEdit && !editingId && !tgDefaultLineDrafts.length && (tgAddingLine || !rows.length);
       const addRow = canEdit && !editingId && tgDefaultLineDrafts.length
