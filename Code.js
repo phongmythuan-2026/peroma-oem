@@ -2,12 +2,8 @@
 const FILE_UPLOAD_ENABLED = true;
 
 function doGet() {
-  const template = HtmlService.createTemplateFromFile('Index');
-  template.FILE_UPLOAD_ENABLED = FILE_UPLOAD_ENABLED;
-  return template.evaluate()
-    .setTitle('Hệ Thống Quản Lý Báo Giá OEM & Tính Giá')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, message: 'OEM API. Frontend: https://phongmythuan-2026.github.io/peroma-oem/' }))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 // API cho frontend host trên GitHub Pages: body JSON {fn, args}
