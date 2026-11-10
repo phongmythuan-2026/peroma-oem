@@ -1,6 +1,6 @@
 // Thay thế google.script.run: gọi backend Google Apps Script (Web App) qua fetch.
 // Dán URL Web App (kết thúc bằng /exec) vào đây sau khi Deploy.
-window.GAS_API_URL = 'https://script.google.com/macros/s/PASTE_DEPLOYMENT_ID/exec';
+window.GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwp0Lh9mvADDITf6EFEb1ZCyyvnYjopFHbpItwDxbTL8Oxvd66UKRLNeKMwxVa9R0m2_A/exec';
 
 (function () {
   function createRunner(success, failure) {
