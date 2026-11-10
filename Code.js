@@ -428,7 +428,7 @@ function getAllVatTuData(loggedUser) {
     const rawData = sheetData.getRange(2, 1, sheetData.getLastRow() - 1, Math.max(14, sheetData.getLastColumn())).getValues();
     const filteredRows = [];
 
-    rawData.forEach(r => {
+    rawData.forEach((r, index) => {
       const cleanMaYC = String(r[8] || "").replace(/^'/, '').trim().toLowerCase(); const cleanMaTH = String(r[9] || "").replace(/^'/, '').trim().toLowerCase();
       if (isQuanLy || isDemoReadOnlyUser(loggedUser) || deptMap[cleanMaYC] === myBP || deptMap[cleanMaTH] === myBP || cleanMaYC === myMaNV || cleanMaTH === myMaNV) {
         const rawPrice = r[3]; const hasPrice = (rawPrice !== "" && rawPrice !== null && !isNaN(rawPrice) && Number(rawPrice) > 0);
@@ -442,6 +442,7 @@ function getAllVatTuData(loggedUser) {
         const ngayYeuCauHienThi = /^\d{4}-\d{2}-\d{2}$/.test(ngayYeuCau) ? ngayYeuCau : "";
 
         filteredRows.push({
+          sheetRow: index + 2,
           maVatTu: String(r[0]).trim(), tenVatTu: infoDm ? infoDm.ten : String(r[1]).trim(), donVi: infoDm ? infoDm.dvt : String(r[2]).trim(),
           donGia: hasPrice ? Number(rawPrice) : "", ngayHetHan: (r[4] instanceof Date) ? Utilities.formatDate(r[4], "GMT+7", "yyyy-MM-dd") : String(r[4]).trim(),
           ghiChu: String(r[5]).trim(), vat: String(r[6]).trim(), id: String(r[7]).trim(), maNVYC: String(r[8]).replace(/^'/, '').trim(), maNVTH: String(r[9]).replace(/^'/, '').trim(),
@@ -476,7 +477,7 @@ function getReportPriceData(loggedUser) {
   const userMap = buildUserDisplayMap();
   const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, Math.max(14, sheet.getLastColumn())).getValues();
   const items = [];
-  rows.forEach(row => {
+  rows.forEach((row, index) => {
     const requester = String(row[8] || "").replace(/^'/, "").trim();
     const performer = String(row[9] || "").replace(/^'/, "").trim();
     if (!canSeeAll && requester.toLowerCase() !== maNV && performer.toLowerCase() !== maNV) return;
@@ -486,6 +487,7 @@ function getReportPriceData(loggedUser) {
       ? Utilities.formatDate(row[12], "GMT+7", "yyyy-MM-dd")
       : String(row[12] || "").trim();
     items.push({
+      sheetRow: index + 2,
       id: String(row[7] || "").trim(),
       maVatTu: String(row[0] || "").trim(),
       tenVatTu: materialNames[String(row[0] || "").trim().toUpperCase()] || String(row[1] || "").trim(),
@@ -649,20 +651,34 @@ function setTaiLieuDinhKemHyperlink(sheet, row, url) {
   sheet.getRange(row, 14).setRichTextValue(richText);
 }
 
-function confirmVatTu(idToConfirm, loggedUser) {
+function confirmVatTu(idToConfirm, loggedUser, sourceRow) {
   if (isDemoReadOnlyUser(loggedUser)) return demoReadOnlyError();
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet(); const sheet = ss.getSheetByName('DuLieuVatTu');
-    const idRange = sheet.getRange(2, 8, sheet.getLastRow() - 1, 1).getValues();
-    for (let i = 0; i < idRange.length; i++) {
-      if (String(idRange[i][0]).trim() === String(idToConfirm).trim()) {
-        const todayStr = Utilities.formatDate(new Date(), "GMT+7", "yyyy-MM-dd");
-        sheet.getRange(i + 2, 11, 1, 2).setValues([["Đã nhận", todayStr]]);
-        writeSystemLog(loggedUser.maNV, loggedUser.hoTen, "BÁO GIÁ NVL", "TIẾP NHẬN", idToConfirm, `Tiếp nhận ID: ${idToConfirm}`);
-        return { success: true, message: "Đã tiếp nhận báo giá ID: " + idToConfirm };
-      }
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('DuLieuVatTu');
+    if (!sheet || sheet.getLastRow() <= 1) return { success: false, message: "Không tìm thấy ID" };
+    const employee = String(loggedUser && loggedUser.maNV || "").replace(/^'/, "").trim().toLowerCase();
+    const role = String(loggedUser && loggedUser.chucVu || "").trim().toLowerCase();
+    let rowNumber = Number(sourceRow);
+    if (!Number.isInteger(rowNumber) || rowNumber < 2 || rowNumber > sheet.getLastRow()) {
+      const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 14).getValues();
+      const candidates = rows.map((row, index) => ({ row, rowNumber: index + 2 }))
+        .filter(item => String(item.row[7]).trim() === String(idToConfirm).trim() &&
+          String(item.row[10] || (Number(item.row[3]) > 0 ? "Chờ tiếp nhận" : "Chờ báo giá")).toLowerCase().includes("tiếp nhận") &&
+          !String(item.row[10] || "").toLowerCase().includes("đã nhận"));
+      if (candidates.length > 1) return { success: false, message: `ID ${idToConfirm} bị trùng; hãy tải lại dashboard để tiếp nhận đúng yêu cầu.` };
+      if (!candidates.length) return { success: false, message: "Không tìm thấy yêu cầu đang chờ tiếp nhận với ID: " + idToConfirm };
+      rowNumber = candidates[0].rowNumber;
     }
-    return { success: false, message: "Không tìm thấy ID" };
+    const row = sheet.getRange(rowNumber, 1, 1, 14).getValues()[0];
+    if (String(row[7]).trim() !== String(idToConfirm).trim()) return { success: false, message: "Yêu cầu đã thay đổi; hãy tải lại dashboard." };
+    const status = String(row[10] || (Number(row[3]) > 0 ? "Chờ tiếp nhận" : "Chờ báo giá")).trim().toLowerCase();
+    if (!status.includes("tiếp nhận") || status.includes("đã nhận")) return { success: false, message: "Yêu cầu này không còn ở trạng thái chờ tiếp nhận." };
+    const requester = String(row[8] || "").replace(/^'/, "").trim().toLowerCase();
+    if (role !== "quanly" && (!employee || employee !== requester)) return { success: false, message: "Bạn không có quyền tiếp nhận yêu cầu giá này." };
+    const todayStr = Utilities.formatDate(new Date(), "GMT+7", "yyyy-MM-dd");
+    sheet.getRange(rowNumber, 11, 1, 2).setValues([["Đã nhận", todayStr]]);
+    writeSystemLog(loggedUser.maNV, loggedUser.hoTen, "BÁO GIÁ NVL", "TIẾP NHẬN", idToConfirm, `Tiếp nhận ID: ${idToConfirm}`);
+    return { success: true, message: "Đã tiếp nhận báo giá ID: " + idToConfirm };
   } catch (err) { return { success: false, message: "Lỗi: " + err.toString() }; }
 }
 

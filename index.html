@@ -1052,7 +1052,7 @@
       return input ? input.value : '';
     }
 
-    let pricePage = 1, pricePageSize = 25, currentEditMaNVYC = "";
+    let pricePage = 1, pricePageSize = 25, currentEditMaNVYC = "", currentPriceRequestItem = null;
     let priceSortState = { key: 'default', direction: 'desc' };
     let bomPage = 1, bomPageSize = 25;
     let tgPage = 1, tgPageSize = 25;
@@ -1642,7 +1642,10 @@
     }
     function runReportQueueAction(action, key) {
       if (isDemoReadOnly()) return showAlert('Tài khoản demo chỉ được xem dữ liệu.', true);
-      if (action === 'receive') return confirmPriceItem(key);
+      if (action === 'receive') {
+        const queueItem = reportPendingItems.find(item => item.kind === 'price' && item.key === String(key));
+        return confirmPriceItem(key, false, queueItem && queueItem.record);
+      }
       if (action === 'approve-bom') {
         const project = getBomProjects(fullBomData).find(item => item.key === String(key));
         if (project && project.rows.length) approveBomItem(project.rows[0].id, 'report');
@@ -2284,6 +2287,7 @@
       if (isDemoReadOnly() && mode !== 'view') return showAlert('Tài khoản demo chỉ được xem dữ liệu.', true);
       const item = enc ? JSON.parse(decodeURIComponent(enc)) : null;
       if (mode === 'edit' && !canEditPriceRequest(item)) return showAlert('Bạn không có quyền sửa yêu cầu giá này.', true);
+      currentPriceRequestItem = mode === 'view' ? item : null;
       const modalEl = document.getElementById('modalPriceForm');
       const modalBody = modalEl.querySelector('.modal-body');
       modalBody.innerHTML = `
@@ -2352,7 +2356,7 @@
         confirmBtn.type = 'button';
         confirmBtn.className = 'btn btn-success btn-sm d-none';
         confirmBtn.id = 'modal-price-btn-confirm';
-        confirmBtn.onclick = () => confirmPriceItem(document.getElementById('modal-price-editRowId').value, true);
+        confirmBtn.onclick = () => confirmPriceItem(document.getElementById('modal-price-editRowId').value, true, currentPriceRequestItem);
         deleteBtn.before(confirmBtn);
       }
       [[cloneBtn, 'fa-copy', 'Nhân bản'], [editBtn, 'fa-pen', 'Sửa'], [deleteBtn, 'fa-trash', 'Xóa'], [confirmBtn, 'fa-check', 'Tiếp nhận']].forEach(([button, icon, label]) => {
@@ -2441,10 +2445,16 @@
       if (!canEditPriceRequest(item)) return showAlert('Bạn không có quyền xóa yêu cầu giá này.', true);
       google.script.run.withSuccessHandler(res => { if(res.success){showAlert(res.message); loadAllPriceData();} else showAlert(res.message,true); }).deleteVatTu(id, currentUser);
     }
-    function confirmPriceItem(id, closeModal = false) {
-      const item = fullPriceData.find(row => String(row.id) === String(id)) || (reportPriceSummary.items || []).find(row => String(row.id) === String(id)) || (reportPriceSummary.pendingItems || []).find(row => String(row.id) === String(id));
+    function confirmPriceItem(id, closeModal = false, requestedItem = null) {
+      const candidates = [
+        requestedItem,
+        ...fullPriceData.filter(row => String(row.id) === String(id)),
+        ...(reportPriceSummary.items || []).filter(row => String(row.id) === String(id)),
+        ...(reportPriceSummary.pendingItems || []).filter(row => String(row.id) === String(id))
+      ].filter(Boolean);
+      const item = candidates.find(row => canReceivePriceRequest(row));
       if (!canReceivePriceRequest(item)) return showAlert('Bạn không có quyền tiếp nhận yêu cầu giá này.', true);
-      google.script.run.withSuccessHandler(res => { if(res.success){ if(closeModal){ const modal = bootstrap.Modal.getInstance(document.getElementById('modalPriceForm')); if(modal) modal.hide(); } showAlert(res.message); loadAllPriceData(); if (activeTabId === 'report') loadReportData(); } else showAlert(res.message,true); }).confirmVatTu(id, currentUser);
+      google.script.run.withSuccessHandler(res => { if(res.success){ if(closeModal){ const modal = bootstrap.Modal.getInstance(document.getElementById('modalPriceForm')); if(modal) modal.hide(); } showAlert(res.message); loadAllPriceData(); if (activeTabId === 'report') loadReportData(); } else showAlert(res.message,true); }).confirmVatTu(id, currentUser, item.sheetRow);
     }
     function exportPriceToExcel() { 
       if(!filteredPriceData.length) return showAlert("Không có dữ liệu!", true);
