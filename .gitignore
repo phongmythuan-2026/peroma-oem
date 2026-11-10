@@ -1,0 +1,6 @@
+*.gsheet
+*.xlsx
+Gas_Project_Attachments/
+desktop.ini
+.clasp.json
+*.code-workspace
