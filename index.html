@@ -602,8 +602,8 @@
               <th class="sticky-col-1 text-center">Chức năng</th><th class="sticky-col-2 sortable-column" onclick="sortModernTable('tg','trangThai')">Trạng thái</th>
               <th class="sortable-column" onclick="sortModernTable('tg','soPhieu')">Số phiếu</th><th class="sortable-column" onclick="sortModernTable('tg','maDuan')">Mã dự án</th>
               <th class="sortable-column" data-default-width="125" onclick="sortModernTable('tg','tenDuan')">Tên dự án</th><th class="sortable-column" data-default-width="160" onclick="sortModernTable('tg','tenKhachHang')">Tên khách hàng (mã KH)</th>
-              <th>Đvt dự án</th><th class="text-end">Số lượng</th><th class="text-end">Nguyên liệu</th><th class="text-end">Bao bì</th>
-              <th class="text-end">Nhân công</th><th class="text-end">Khấu hao</th><th class="text-end">Chi phí khác</th><th class="text-end">Tổng cộng</th><th class="text-end">Giá KH YC</th>
+              <th>Đvt dự án</th><th class="text-end">Số lượng</th><th class="text-end" title="Chi phí trên một đơn vị sản phẩm">Nguyên liệu</th><th class="text-end" title="Chi phí trên một đơn vị sản phẩm">Bao bì</th>
+              <th class="text-end" title="Chi phí trên một đơn vị sản phẩm">Nhân công</th><th class="text-end" title="Chi phí trên một đơn vị sản phẩm">Khấu hao</th><th class="text-end" title="Chi phí trên một đơn vị sản phẩm">Chi phí khác</th><th class="text-end" title="Giá sản xuất trên một đơn vị sản phẩm">Tổng cộng</th><th class="text-end">Giá KH YC</th>
               <th class="text-end">LN dự kiến</th><th class="text-end">Giá duyệt</th><th class="text-end">LN duyệt</th><th>Ghi chú</th>
               <th>Người tạo</th><th>Ngày cập nhật</th><th>Người duyệt</th><th>Ngày duyệt</th>
             </tr></thead>
@@ -2930,6 +2930,11 @@
       const cost = Number(productionCost) || 0;
       return cost > 0 ? ((Number(price) || 0) / cost - 1) * 100 : 0;
     }
+    function getTgUnitCosts(project) {
+      const quantity = Number(project.soLuong);
+      if (!Number.isFinite(quantity) || quantity <= 0) return null;
+      return Object.fromEntries(Object.entries(project.chiPhi).map(([category, amount]) => [category, amount / quantity]));
+    }
     function normalizeTgStatus(status) {
       const value = String(status || '').trim();
       if (value === 'Chờ duyệt') return 'Đã trình giá';
@@ -3014,13 +3019,15 @@
         if (canManage) actions += `<button class="btn btn-outline-info py-0 px-2" title="Nhân bản" onclick="cloneTinhGiaProjectFromUi(decodeURIComponent('${key}'))"><i class="fa-solid fa-copy"></i></button>`;
         const statusClass = approved ? 'success' : submitted ? 'primary' : project.trangThai === 'Hủy trình giá' ? 'secondary' : 'warning';
         const money = value => `${formatNum(value, 0)} đ`;
+        const unitCosts = getTgUnitCosts(project);
+        const unitMoney = value => value == null ? '-' : `${formatNum(value, 2)} đ`;
         return `<tr><td class="sticky-col-1 text-center">${renderRowActionMenu(actions)}</td><td class="sticky-col-2"><span class="badge bg-${statusClass}">${project.trangThai}</span></td>
           <td><span class="badge bg-light text-primary border">${project.soPhieu}</span></td><td class="fw-bold text-primary">${project.maDuan}</td>
           <td class="text-wrap-cell">${displaySensitiveName(project.tenDuan)}</td><td class="text-wrap-cell">${displaySensitiveText(`${project.tenKhachHang || ''} (${project.maKH || ''})`)}</td>
           <td>${project.dvtDuan || ''}</td><td class="text-end">${formatNum(project.soLuong, 2)}</td>
-          <td class="text-end">${money(project.chiPhi.nguyenLieu)}</td><td class="text-end">${money(project.chiPhi.baoBi)}</td>
-          <td class="text-end">${money(project.chiPhi.nhanCong)}</td><td class="text-end">${money(project.chiPhi.khauHao)}</td><td class="text-end">${money(project.chiPhi.chiPhiKhac)}</td>
-          <td class="text-end fw-bold text-danger">${money(project.tongChiPhi)}</td><td class="text-end">${money(project.giaKH)}</td>
+          <td class="text-end">${unitMoney(unitCosts && unitCosts.nguyenLieu)}</td><td class="text-end">${unitMoney(unitCosts && unitCosts.baoBi)}</td>
+          <td class="text-end">${unitMoney(unitCosts && unitCosts.nhanCong)}</td><td class="text-end">${unitMoney(unitCosts && unitCosts.khauHao)}</td><td class="text-end">${unitMoney(unitCosts && unitCosts.chiPhiKhac)}</td>
+          <td class="text-end fw-bold text-danger">${unitMoney(unitCosts ? project.giaSanXuat : null)}</td><td class="text-end">${money(project.giaKH)}</td>
           <td class="text-end">${formatNum(project.lnDuKien, 2)}%</td><td class="text-end">${money(project.giaDuyet)}</td>
           <td class="text-end">${formatNum(project.lnDuyet, 2)}%</td><td class="small text-wrap-cell">${displaySensitiveText(project.ghiChuDuAn)}</td>
           <td>${project.displayTao || project.nguoiTao || ''}</td><td>${project.ngayCapNhat || project.ngayTao || ''}</td>
@@ -4127,18 +4134,21 @@
 
     function exportTinhGiaToExcel() {
       if (!filteredTgData.length) return showAlert('Không có dữ liệu!', true);
-      const rows = filteredTgData.map(project => ({
-        'Trạng thái': project.trangThai, 'Số phiếu': project.soPhieu, 'Mã dự án': project.maDuan,
-        'Tên dự án': project.tenDuan, 'Tên khách hàng (mã KH)': `${project.tenKhachHang || ''} (${project.maKH || ''})`,
-        'Đvt dự án': project.dvtDuan, 'Số lượng': project.soLuong,
-        'Nguyên liệu': project.chiPhi.nguyenLieu, 'Bao bì': project.chiPhi.baoBi,
-        'Nhân công': project.chiPhi.nhanCong, 'Khấu hao': project.chiPhi.khauHao, 'Chi phí khác': project.chiPhi.chiPhiKhac,
-        'Tổng cộng': project.tongChiPhi, 'Giá KH YC': project.giaKH, 'LN dự kiến (%)': project.lnDuKien,
-        'Giá duyệt': project.giaDuyet, 'LN duyệt (%)': project.lnDuyet,
-        'Ghi chú': project.ghiChuDuAn, 'Người tạo': project.displayTao || project.nguoiTao,
-        'Ngày cập nhật': project.ngayCapNhat, 'Người duyệt': project.displayDuyet || project.nguoiDuyet || '-',
-        'Ngày duyệt': project.ngayDuyet || '-'
-      }));
+      const rows = filteredTgData.map(project => {
+        const unitCosts = getTgUnitCosts(project);
+        return {
+          'Trạng thái': project.trangThai, 'Số phiếu': project.soPhieu, 'Mã dự án': project.maDuan,
+          'Tên dự án': project.tenDuan, 'Tên khách hàng (mã KH)': `${project.tenKhachHang || ''} (${project.maKH || ''})`,
+          'Đvt dự án': project.dvtDuan, 'Số lượng': project.soLuong,
+          'Nguyên liệu': unitCosts ? unitCosts.nguyenLieu : '', 'Bao bì': unitCosts ? unitCosts.baoBi : '',
+          'Nhân công': unitCosts ? unitCosts.nhanCong : '', 'Khấu hao': unitCosts ? unitCosts.khauHao : '', 'Chi phí khác': unitCosts ? unitCosts.chiPhiKhac : '',
+          'Tổng cộng': unitCosts ? project.giaSanXuat : '', 'Giá KH YC': project.giaKH, 'LN dự kiến (%)': project.lnDuKien,
+          'Giá duyệt': project.giaDuyet, 'LN duyệt (%)': project.lnDuyet,
+          'Ghi chú': project.ghiChuDuAn, 'Người tạo': project.displayTao || project.nguoiTao,
+          'Ngày cập nhật': project.ngayCapNhat, 'Người duyệt': project.displayDuyet || project.nguoiDuyet || '-',
+          'Ngày duyệt': project.ngayDuyet || '-'
+        };
+      });
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rows), 'BangTinhGiaOEM');
       XLSX.writeFile(workbook, `BangTinhGiaOEM_${new Date().toISOString().slice(0, 10)}.xlsx`);
