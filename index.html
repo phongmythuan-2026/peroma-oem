@@ -2365,8 +2365,8 @@
       const canConfirm = canReceivePriceRequest(item);
       const canEdit = item && canEditPriceRequest(item);
       document.getElementById('modal-price-mode').value = mode;
-      document.getElementById('modal-price-editRowId').value = item ? item.id : '';
-      currentEditMaNVYC = item ? (item.maNVYC || '') : '';
+      document.getElementById('modal-price-editRowId').value = (item && mode !== 'clone') ? item.id : '';
+      currentEditMaNVYC = (item && mode !== 'clone') ? (item.maNVYC || '') : '';
       saveBtn.classList.toggle('d-none', showViewActions);
       cloneBtn.classList.toggle('d-none', !showViewActions || isDemoReadOnly());
       editBtn.classList.toggle('d-none', !showViewActions || !canEdit);

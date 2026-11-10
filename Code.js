@@ -533,7 +533,11 @@ function saveVatTu(formData, loggedUser) {
       }
     }
     if (!isUpdate) {
-      finalId = finalId || String(sheet.getLastRow() + 500);
+      if (!finalId) {
+        const ids = sheet.getLastRow() > 1 ? sheet.getRange(2, 8, sheet.getLastRow() - 1, 1).getValues() : [];
+        const maxId = ids.reduce((m, r) => { const n = parseInt(String(r[0]).trim(), 10); return isNaN(n) ? m : Math.max(m, n); }, 499);
+        finalId = String(maxId + 1);
+      }
       sheet.appendRow([String(formData.maVatTu).trim(), String(formData.tenVatTu).trim(), String(formData.donVi).trim(), donGiaVal, ngayHetHanStr, String(formData.ghiChu).trim(), String(formData.vat).trim(), finalId, "'" + cleanMaYC, "'" + cleanMaTH, trangThai, ngayXacNhan, todayStr, taiLieuDinhKem]);
       setTaiLieuDinhKemHyperlink(sheet, sheet.getLastRow(), taiLieuDinhKem);
     }
