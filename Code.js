@@ -58,11 +58,21 @@ function getJsonDataFolder() {
 function getJsonFileContent(file) {
   const cache = CacheService.getScriptCache();
   const cacheKey = JSON_DATA_CACHE_PREFIX + file.getId();
-  const cached = cache.get(cacheKey);
-  let content;
-  if (cached) {
-    content = Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(cached), 'application/gzip')).getDataAsString('UTF-8');
-  } else {
+  const cachedChunkCount = Number(cache.get(cacheKey + ':count'));
+  let content = '';
+  if (Number.isInteger(cachedChunkCount) && cachedChunkCount > 0 && cachedChunkCount <= 100) {
+    const chunks = [];
+    for (let index = 0; index < cachedChunkCount; index++) {
+      const chunk = cache.get(cacheKey + ':' + index);
+      if (chunk === null) {
+        chunks.length = 0;
+        break;
+      }
+      chunks.push(chunk);
+    }
+    if (chunks.length === cachedChunkCount) content = chunks.join('');
+  }
+  if (!content) {
     content = file.getBlob().getDataAsString('UTF-8');
     cacheJsonFileContent(cache, cacheKey, content);
   }
@@ -74,12 +84,16 @@ function getJsonFileContent(file) {
 }
 
 function cacheJsonFileContent(cache, cacheKey, content) {
-  const compressed = Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(content, 'application/json')).getBytes());
-  if (compressed.length <= 90000) {
-    cache.put(cacheKey, compressed, JSON_DATA_CACHE_TTL_SECONDS);
-  } else {
-    cache.remove(cacheKey);
+  const chunkSize = 20000;
+  const chunkCount = Math.ceil(content.length / chunkSize);
+  for (let index = 0; index < chunkCount; index++) {
+    cache.put(
+      cacheKey + ':' + index,
+      content.substring(index * chunkSize, (index + 1) * chunkSize),
+      JSON_DATA_CACHE_TTL_SECONDS
+    );
   }
+  cache.put(cacheKey + ':count', String(chunkCount), JSON_DATA_CACHE_TTL_SECONDS);
 }
 
 function getJsonDataMonth(value) {
