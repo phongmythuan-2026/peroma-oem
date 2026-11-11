@@ -28,6 +28,8 @@ const API_JSON_WRITE_FUNCTIONS = [
 const JSON_DATA_FOLDER_NAME = 'DATA';
 const JSON_DATA_VERSION = 1;
 const JSON_DATA_CATALOG_FILE = 'catalog.json';
+const JSON_DATA_CACHE_PREFIX = 'OEM_JSON_V1:';
+const JSON_DATA_CACHE_TTL_SECONDS = 21600;
 const JSON_DATA_STATIC_SHEETS = ['Users', 'KhachHang', 'DMVT'];
 const JSON_DATA_TEXT_HEADERS = [
   'MaNV', 'MaKH', 'MaVatTu', 'MaDuan', 'SoPhieu', 'ID', 'IDYeuCauGia',
@@ -54,11 +56,30 @@ function getJsonDataFolder() {
 }
 
 function getJsonFileContent(file) {
-  return JSON.parse(file.getBlob().getDataAsString('UTF-8'), (key, value) => {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = JSON_DATA_CACHE_PREFIX + file.getId();
+  const cached = cache.get(cacheKey);
+  let content;
+  if (cached) {
+    content = Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(cached))).getDataAsString('UTF-8');
+  } else {
+    content = file.getBlob().getDataAsString('UTF-8');
+    cacheJsonFileContent(cache, cacheKey, content);
+  }
+  return JSON.parse(content, (key, value) => {
     return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)
       ? new Date(value)
       : value;
   });
+}
+
+function cacheJsonFileContent(cache, cacheKey, content) {
+  const compressed = Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(content, 'application/json')).getBytes());
+  if (compressed.length <= 90000) {
+    cache.put(cacheKey, compressed, JSON_DATA_CACHE_TTL_SECONDS);
+  } else {
+    cache.remove(cacheKey);
+  }
 }
 
 function getJsonDataMonth(value) {
@@ -130,10 +151,7 @@ function migrateSpreadsheetDataToJson(folder) {
 
   Object.keys(months).sort().forEach(monthName => {
     const fileName = monthName + '.json';
-    const files = folder.getFilesByName(fileName);
-    const content = JSON.stringify(months[monthName]);
-    if (files.hasNext()) files.next().setContent(content);
-    else folder.createFile(fileName, content, MimeType.PLAIN_TEXT);
+    saveJsonDataFile(folder, fileName, months[monthName]);
   });
   saveJsonDataFile(folder, JSON_DATA_CATALOG_FILE, catalog);
   PropertiesService.getScriptProperties().setProperty(JSON_DATA_MIGRATION_PROPERTY, 'complete');
@@ -142,8 +160,14 @@ function migrateSpreadsheetDataToJson(folder) {
 function saveJsonDataFile(folder, fileName, data) {
   const files = folder.getFilesByName(fileName);
   const content = JSON.stringify(data);
-  if (files.hasNext()) files.next().setContent(content);
-  else folder.createFile(fileName, content, MimeType.PLAIN_TEXT);
+  let file;
+  if (files.hasNext()) {
+    file = files.next();
+    file.setContent(content);
+  } else {
+    file = folder.createFile(fileName, content, MimeType.PLAIN_TEXT);
+  }
+  cacheJsonFileContent(CacheService.getScriptCache(), JSON_DATA_CACHE_PREFIX + file.getId(), content);
 }
 
 function JsonDataRange(sheet, row, column, numRows, numColumns) {
