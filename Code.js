@@ -7,10 +7,509 @@ function doGet() {
 }
 
 // API cho frontend host trên GitHub Pages: body JSON {fn, args}
-const API_BLOCKED_FUNCTIONS = ['doGet', 'doPost', 'authorizeDriveForAttachments'];
+const API_BLOCKED_FUNCTIONS = [
+  'doGet', 'doPost', 'authorizeDriveForAttachments',
+  'getJsonDataFolder', 'getJsonFileContent', 'getJsonDataMonth', 'getJsonRowMonth',
+  'migrateSpreadsheetDataToJson', 'saveJsonDataFile', 'getDataWorkbook',
+  'JsonDataRange', 'JsonDataSheet', 'JsonDataWorkbook'
+];
+
+const JSON_DATA_FOLDER_NAME = 'DATA';
+const JSON_DATA_VERSION = 1;
+const JSON_DATA_CATALOG_FILE = 'catalog.json';
+const JSON_DATA_STATIC_SHEETS = ['Users', 'KhachHang', 'DMVT'];
+const JSON_DATA_TEXT_HEADERS = [
+  'MaNV', 'MaKH', 'MaVatTu', 'MaDuan', 'SoPhieu', 'ID', 'IDYeuCauGia',
+  'NguoiTao', 'NguoiDuyet', 'MaNVYC', 'MaNVTH'
+];
+const JSON_DATA_MIGRATION_PROPERTY = 'JSON_DATA_MIGRATION_V1';
+const JSON_DATA_FOLDER_ID_PROPERTY = 'JSON_DATA_FOLDER_ID';
+var ACTIVE_JSON_WORKBOOK = null;
+var ACTIVE_JSON_WORKBOOK_LOCK = null;
+
+function getJsonDataFolder() {
+  const properties = PropertiesService.getScriptProperties();
+  const folderId = properties.getProperty(JSON_DATA_FOLDER_ID_PROPERTY);
+  if (folderId) return DriveApp.getFolderById(folderId);
+
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const spreadsheetFile = DriveApp.getFileById(spreadsheet.getId());
+  const parents = spreadsheetFile.getParents();
+  const parentFolder = parents.hasNext() ? parents.next() : DriveApp.getRootFolder();
+  const folders = parentFolder.getFoldersByName(JSON_DATA_FOLDER_NAME);
+  const folder = folders.hasNext() ? folders.next() : parentFolder.createFolder(JSON_DATA_FOLDER_NAME);
+  properties.setProperty(JSON_DATA_FOLDER_ID_PROPERTY, folder.getId());
+  return folder;
+}
+
+function getJsonFileContent(file) {
+  return JSON.parse(file.getBlob().getDataAsString('UTF-8'), (key, value) => {
+    return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)
+      ? new Date(value)
+      : value;
+  });
+}
+
+function getJsonDataMonth(value) {
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, 'GMT+7', 'yyyy-MM');
+  }
+  const text = String(value || '').trim();
+  const match = text.match(/^(\d{4})[-/](\d{1,2})/);
+  if (match) return match[1] + '-' + String(match[2]).padStart(2, '0');
+  const timestamp = Date.parse(text);
+  return Number.isFinite(timestamp)
+    ? Utilities.formatDate(new Date(timestamp), 'GMT+7', 'yyyy-MM')
+    : Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM');
+}
+
+function getJsonRowMonth(sheetName, row) {
+  const dateColumns = {
+    DuLieuVatTu: [12, 11],
+    BOMOEM: [11, 13],
+    BangTinhGiaOEM: [12, 24],
+    SystemLogs: [0]
+  };
+  const columns = dateColumns[sheetName];
+  if (columns) {
+    for (let i = 0; i < columns.length; i++) {
+      const value = row[columns[i]];
+      if (value && !/^https?:\/\//i.test(String(value))) return getJsonDataMonth(value);
+    }
+  }
+  return getJsonDataMonth(row.find(value => value instanceof Date));
+}
+
+function migrateSpreadsheetDataToJson(folder) {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const catalog = { version: JSON_DATA_VERSION, sheets: {} };
+  const months = {};
+
+  spreadsheet.getSheets().forEach(sheet => {
+    const range = sheet.getDataRange();
+    const values = range.getValues();
+    if (!values.length) return;
+    const sheetName = sheet.getName();
+    const displayValues = range.getDisplayValues();
+    const textColumns = values[0].map((header, index) =>
+      JSON_DATA_TEXT_HEADERS.indexOf(String(header || '').trim()) !== -1 ? index : -1
+    ).filter(index => index >= 0);
+    const rows = values.slice(1).map((row, rowIndex) => {
+      textColumns.forEach(column => {
+        const displayedValue = displayValues[rowIndex + 1][column];
+        if (displayedValue !== '') row[column] = displayedValue;
+      });
+      return row;
+    });
+    const table = { headers: values[0], rows: rows };
+    if (JSON_DATA_STATIC_SHEETS.indexOf(sheetName) !== -1) {
+      catalog.sheets[sheetName] = table;
+      return;
+    }
+
+    table.rows.forEach(row => {
+      const monthName = getJsonRowMonth(sheetName, row);
+      if (!months[monthName]) months[monthName] = { version: JSON_DATA_VERSION, month: monthName, sheets: {} };
+      if (!months[monthName].sheets[sheetName]) {
+        months[monthName].sheets[sheetName] = { headers: table.headers, rows: [] };
+      }
+      months[monthName].sheets[sheetName].rows.push(row);
+    });
+  });
+
+  Object.keys(months).sort().forEach(monthName => {
+    const fileName = monthName + '.json';
+    const files = folder.getFilesByName(fileName);
+    const content = JSON.stringify(months[monthName]);
+    if (files.hasNext()) files.next().setContent(content);
+    else folder.createFile(fileName, content, MimeType.JSON);
+  });
+  saveJsonDataFile(folder, JSON_DATA_CATALOG_FILE, catalog);
+  PropertiesService.getScriptProperties().setProperty(JSON_DATA_MIGRATION_PROPERTY, 'complete');
+}
+
+function saveJsonDataFile(folder, fileName, data) {
+  const files = folder.getFilesByName(fileName);
+  const content = JSON.stringify(data);
+  if (files.hasNext()) files.next().setContent(content);
+  else folder.createFile(fileName, content, MimeType.JSON);
+}
+
+function JsonDataRange(sheet, row, column, numRows, numColumns) {
+  this.sheet = sheet;
+  this.row = row;
+  this.column = column;
+  this.numRows = numRows || 1;
+  this.numColumns = numColumns || 1;
+}
+
+JsonDataRange.prototype.getValues = function () {
+  const snapshot = this.sheet.workbook.getSheetSnapshot(this.sheet.name);
+  const values = [];
+  for (let rowOffset = 0; rowOffset < this.numRows; rowOffset++) {
+    const row = [];
+    for (let columnOffset = 0; columnOffset < this.numColumns; columnOffset++) {
+      const rowNumber = this.row + rowOffset;
+      const columnIndex = this.column + columnOffset - 1;
+      const sourceRow = rowNumber === 1 ? snapshot.headers : snapshot.rows[rowNumber - 2];
+      row.push(sourceRow && sourceRow[columnIndex] != null ? sourceRow[columnIndex] : '');
+    }
+    values.push(row);
+  }
+  return values;
+};
+
+JsonDataRange.prototype.getDisplayValues = function () {
+  return this.getValues().map(row => row.map(value => {
+    if (value instanceof Date) return Utilities.formatDate(value, 'GMT+7', 'yyyy-MM-dd');
+    return value == null ? '' : String(value);
+  }));
+};
+
+JsonDataRange.prototype.setValues = function (values) {
+  if (!Array.isArray(values) || values.length !== this.numRows ||
+      values.some(row => !Array.isArray(row) || row.length !== this.numColumns)) {
+    throw new Error('Dữ liệu ghi JSON không khớp kích thước vùng.');
+  }
+  this.sheet.setValues(this.row, this.column, values);
+  return this;
+};
+
+JsonDataRange.prototype.setValue = function (value) {
+  this.sheet.setCell(this.row, this.column, value);
+  return this;
+};
+
+JsonDataRange.prototype.setNumberFormat = function () { return this; };
+JsonDataRange.prototype.setFontWeight = function () { return this; };
+JsonDataRange.prototype.setBackground = function () { return this; };
+JsonDataRange.prototype.setFontColor = function () { return this; };
+
+function JsonDataSheet(workbook, name) {
+  this.workbook = workbook;
+  this.name = name;
+}
+
+JsonDataSheet.prototype.getLastRow = function () {
+  const snapshot = this.getSnapshot();
+  return snapshot.headers.length || snapshot.rows.length ? snapshot.rows.length + (snapshot.headers.length ? 1 : 0) : 0;
+};
+
+JsonDataSheet.prototype.getLastColumn = function () {
+  const snapshot = this.getSnapshot();
+  return snapshot.rows.reduce((width, row) => Math.max(width, row.length), snapshot.headers.length);
+};
+
+JsonDataSheet.prototype.getDataRange = function () {
+  const snapshot = this.getSnapshot();
+  const rowCount = snapshot.rows.length + (snapshot.headers.length ? 1 : 0);
+  return new JsonDataRange(this, 1, 1, Math.max(1, rowCount), Math.max(1, this.getLastColumn()));
+};
+
+JsonDataSheet.prototype.getRange = function (row, column, numRows, numColumns) {
+  return new JsonDataRange(this, row, column, numRows, numColumns);
+};
+
+JsonDataSheet.prototype.appendRow = function (values) {
+  if (!this.getLastRow()) this.getRange(1, 1, 1, values.length).setValues([values]);
+  else this.getRange(this.getLastRow() + 1, 1, 1, values.length).setValues([values]);
+  return this;
+};
+
+JsonDataSheet.prototype.deleteRow = function (rowNumber) {
+  if (rowNumber <= 1) throw new Error('Không thể xóa dòng tiêu đề.');
+  this.workbook.deleteSheetRow(this.name, rowNumber);
+  this.snapshot = null;
+  return this;
+};
+
+JsonDataSheet.prototype.getCell = function (rowNumber, columnNumber) {
+  const snapshot = this.getSnapshot();
+  if (rowNumber === 1) return snapshot.headers[columnNumber - 1] || '';
+  const row = snapshot.rows[rowNumber - 2];
+  return row ? (row[columnNumber - 1] == null ? '' : row[columnNumber - 1]) : '';
+};
+
+JsonDataSheet.prototype.setCell = function (rowNumber, columnNumber, value) {
+  this.workbook.setSheetCell(this.name, rowNumber, columnNumber, value);
+  this.snapshot = null;
+};
+
+JsonDataSheet.prototype.setValues = function (row, column, values) {
+  this.workbook.setSheetRange(this.name, row, column, values);
+  this.snapshot = null;
+};
+
+JsonDataSheet.prototype.getSnapshot = function () {
+  return this.workbook.getSheetSnapshot(this.name);
+};
+
+JsonDataSheet.prototype.setFrozenRows = function () { return this; };
+
+function JsonDataWorkbook(folder) {
+  this.folder = folder;
+  this.catalog = { version: JSON_DATA_VERSION, sheets: {} };
+  this.months = {};
+  this.dirtyCatalog = false;
+  this.dirtyMonths = {};
+  this.sheetSnapshots = {};
+
+  const catalogFiles = folder.getFilesByName(JSON_DATA_CATALOG_FILE);
+  if (catalogFiles.hasNext()) {
+    this.catalog = getJsonFileContent(catalogFiles.next());
+    if (!this.catalog || this.catalog.version !== JSON_DATA_VERSION || !this.catalog.sheets) {
+      throw new Error('Cấu trúc DATA/catalog.json không hợp lệ.');
+    }
+  }
+
+  const files = folder.getFiles();
+  while (files.hasNext()) {
+    const file = files.next();
+    const match = file.getName().match(/^(\d{4}-\d{2})\.json$/);
+    if (!match) continue;
+    const monthData = getJsonFileContent(file);
+    if (!monthData || monthData.version !== JSON_DATA_VERSION || !monthData.sheets) {
+      throw new Error('Cấu trúc file DATA/' + file.getName() + ' không hợp lệ.');
+    }
+    this.months[match[1]] = monthData;
+  }
+}
+
+JsonDataWorkbook.prototype.isStaticSheet = function (name) {
+  return JSON_DATA_STATIC_SHEETS.indexOf(name) !== -1;
+};
+
+JsonDataWorkbook.prototype.getSheetSnapshot = function (name) {
+  if (this.sheetSnapshots[name]) return this.sheetSnapshots[name];
+  if (this.isStaticSheet(name)) {
+    const table = this.catalog.sheets[name] || { headers: [], rows: [] };
+    this.sheetSnapshots[name] = {
+      headers: table.headers || [],
+      rows: table.rows || [],
+      refs: (table.rows || []).map((row, index) => ({ index: index }))
+    };
+    return this.sheetSnapshots[name];
+  }
+
+  const headers = [];
+  const rows = [];
+  const refs = [];
+  Object.keys(this.months).sort().forEach(monthName => {
+    const table = this.months[monthName].sheets[name];
+    if (!table) return;
+    if (!headers.length) Array.prototype.push.apply(headers, table.headers || []);
+    (table.rows || []).forEach((row, index) => {
+      rows.push(row);
+      refs.push({ month: monthName, index: index });
+    });
+  });
+  this.sheetSnapshots[name] = { headers: headers, rows: rows, refs: refs };
+  return this.sheetSnapshots[name];
+};
+
+JsonDataWorkbook.prototype.invalidateSheetSnapshot = function (name) {
+  delete this.sheetSnapshots[name];
+};
+
+JsonDataWorkbook.prototype.getSheetByName = function (name) {
+  const snapshot = this.getSheetSnapshot(name);
+  return snapshot.headers.length || snapshot.rows.length ? new JsonDataSheet(this, name) : null;
+};
+
+JsonDataWorkbook.prototype.insertSheet = function (name) {
+  if (this.getSheetByName(name)) throw new Error('Sheet already exists: ' + name);
+  if (this.isStaticSheet(name)) {
+    this.catalog.sheets[name] = { headers: [], rows: [] };
+    this.dirtyCatalog = true;
+    this.invalidateSheetSnapshot(name);
+  } else {
+    const monthName = Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM');
+    this.getOrCreateMonthTable(monthName, name);
+  }
+  return new JsonDataSheet(this, name);
+};
+
+JsonDataWorkbook.prototype.getOrCreateMonthTable = function (monthName, sheetName) {
+  let created = false;
+  if (!this.months[monthName]) {
+    this.months[monthName] = { version: JSON_DATA_VERSION, month: monthName, sheets: {} };
+    created = true;
+  }
+  if (!this.months[monthName].sheets[sheetName]) {
+    this.months[monthName].sheets[sheetName] = { headers: [], rows: [] };
+    created = true;
+  }
+  if (created) this.invalidateSheetSnapshot(sheetName);
+  this.dirtyMonths[monthName] = true;
+  return this.months[monthName].sheets[sheetName];
+};
+
+JsonDataWorkbook.prototype.setSheetCell = function (name, rowNumber, columnNumber, value) {
+  if (rowNumber < 1 || columnNumber < 1) throw new Error('Vị trí ô JSON không hợp lệ.');
+  if (this.isStaticSheet(name)) {
+    const table = this.catalog.sheets[name] || (this.catalog.sheets[name] = { headers: [], rows: [] });
+    this.setTableCell(table, rowNumber, columnNumber, value);
+    this.dirtyCatalog = true;
+    this.invalidateSheetSnapshot(name);
+    return;
+  }
+
+  if (rowNumber === 1) {
+    Object.keys(this.months).forEach(monthName => {
+      const table = this.months[monthName].sheets[name];
+      if (table) this.setTableCell(table, rowNumber, columnNumber, value);
+    });
+    if (!Object.keys(this.months).some(monthName => this.months[monthName].sheets[name])) {
+      const monthName = Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM');
+      this.setTableCell(this.getOrCreateMonthTable(monthName, name), rowNumber, columnNumber, value);
+    } else {
+      Object.keys(this.months).forEach(monthName => {
+        if (this.months[monthName].sheets[name]) this.dirtyMonths[monthName] = true;
+      });
+    }
+    this.invalidateSheetSnapshot(name);
+    return;
+  }
+
+  const snapshot = this.getSheetSnapshot(name);
+  let ref = snapshot.refs[rowNumber - 2];
+  if (!ref) {
+    const monthName = Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM');
+    const table = this.getOrCreateMonthTable(monthName, name);
+    table.rows.push([]);
+    ref = { month: monthName, index: table.rows.length - 1 };
+    this.invalidateSheetSnapshot(name);
+  }
+  const target = this.getOrCreateMonthTable(ref.month, name);
+  while (target.rows.length <= ref.index) target.rows.push([]);
+  this.setRowCell(target.rows[ref.index], columnNumber, value);
+};
+
+JsonDataWorkbook.prototype.setSheetRange = function (name, startRow, startColumn, values) {
+  const snapshot = this.getSheetSnapshot(name);
+  if (this.isStaticSheet(name)) {
+    const table = this.catalog.sheets[name] || (this.catalog.sheets[name] = { headers: [], rows: [] });
+    values.forEach((row, rowOffset) => row.forEach((value, columnOffset) => {
+      this.setTableCell(table, startRow + rowOffset, startColumn + columnOffset, value);
+    }));
+    this.dirtyCatalog = true;
+    this.invalidateSheetSnapshot(name);
+    return;
+  }
+
+  const newRefs = {};
+  values.forEach((row, rowOffset) => {
+    const rowNumber = startRow + rowOffset;
+    if (rowNumber === 1) {
+      const monthNames = Object.keys(this.months);
+      let updated = false;
+      monthNames.forEach(monthName => {
+        const table = this.months[monthName].sheets[name];
+        if (!table) return;
+        row.forEach((value, columnOffset) => {
+          this.setTableCell(table, rowNumber, startColumn + columnOffset, value);
+        });
+        this.dirtyMonths[monthName] = true;
+        updated = true;
+      });
+      if (!updated) {
+        const monthName = Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM');
+        const table = this.getOrCreateMonthTable(monthName, name);
+        row.forEach((value, columnOffset) => {
+          this.setTableCell(table, rowNumber, startColumn + columnOffset, value);
+        });
+      }
+      this.invalidateSheetSnapshot(name);
+      return;
+    }
+
+    let ref = snapshot.refs[rowNumber - 2] || newRefs[rowNumber];
+    if (!ref) {
+      const monthName = Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM');
+      const table = this.getOrCreateMonthTable(monthName, name);
+      ref = { month: monthName, index: table.rows.length };
+      table.rows.push([]);
+      newRefs[rowNumber] = ref;
+      this.invalidateSheetSnapshot(name);
+    }
+    const table = this.getOrCreateMonthTable(ref.month, name);
+    while (table.rows.length <= ref.index) table.rows.push([]);
+    row.forEach((value, columnOffset) => {
+      this.setRowCell(table.rows[ref.index], startColumn + columnOffset, value);
+    });
+  });
+  this.invalidateSheetSnapshot(name);
+};
+
+JsonDataWorkbook.prototype.setTableCell = function (table, rowNumber, columnNumber, value) {
+  if (rowNumber === 1) this.setRowCell(table.headers, columnNumber, value);
+  else {
+    while (table.rows.length < rowNumber - 1) table.rows.push([]);
+    this.setRowCell(table.rows[rowNumber - 2], columnNumber, value);
+  }
+};
+
+JsonDataWorkbook.prototype.setRowCell = function (row, columnNumber, value) {
+  while (row.length < columnNumber) row.push('');
+  row[columnNumber - 1] = value;
+};
+
+JsonDataWorkbook.prototype.deleteSheetRow = function (name, rowNumber) {
+  const snapshot = this.getSheetSnapshot(name);
+  if (this.isStaticSheet(name)) {
+    const table = this.catalog.sheets[name];
+    if (table && table.rows[rowNumber - 2]) {
+      table.rows.splice(rowNumber - 2, 1);
+      this.dirtyCatalog = true;
+      this.invalidateSheetSnapshot(name);
+    }
+    return;
+  }
+  const ref = snapshot.refs[rowNumber - 2];
+  if (!ref) return;
+  this.months[ref.month].sheets[name].rows.splice(ref.index, 1);
+  this.dirtyMonths[ref.month] = true;
+  this.invalidateSheetSnapshot(name);
+};
+
+JsonDataWorkbook.prototype.save = function () {
+  Object.keys(this.dirtyMonths).sort().forEach(monthName => {
+    saveJsonDataFile(this.folder, monthName + '.json', this.months[monthName]);
+  });
+  if (this.dirtyCatalog) saveJsonDataFile(this.folder, JSON_DATA_CATALOG_FILE, this.catalog);
+};
+
+function getDataWorkbook() {
+  if (ACTIVE_JSON_WORKBOOK) return ACTIVE_JSON_WORKBOOK;
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  ACTIVE_JSON_WORKBOOK_LOCK = lock;
+  try {
+    const folder = getJsonDataFolder();
+    const migrationDone = PropertiesService.getScriptProperties().getProperty(JSON_DATA_MIGRATION_PROPERTY) === 'complete';
+    const catalogFiles = folder.getFilesByName(JSON_DATA_CATALOG_FILE);
+    const monthFiles = folder.getFiles();
+    let hasMonthlyJson = false;
+    while (monthFiles.hasNext()) {
+      if (/^\d{4}-\d{2}\.json$/.test(monthFiles.next().getName())) hasMonthlyJson = true;
+    }
+    if (migrationDone && !catalogFiles.hasNext() && !hasMonthlyJson) {
+      throw new Error('Không tìm thấy dữ liệu JSON trong thư mục DATA.');
+    }
+    if (!migrationDone && !catalogFiles.hasNext() && !hasMonthlyJson) migrateSpreadsheetDataToJson(folder);
+    ACTIVE_JSON_WORKBOOK = new JsonDataWorkbook(folder);
+    return ACTIVE_JSON_WORKBOOK;
+  } catch (error) {
+    ACTIVE_JSON_WORKBOOK_LOCK.releaseLock();
+    ACTIVE_JSON_WORKBOOK_LOCK = null;
+    throw error;
+  }
+}
 
 function doPost(e) {
   let out;
+  ACTIVE_JSON_WORKBOOK = null;
+  ACTIVE_JSON_WORKBOOK_LOCK = null;
   try {
     const req = JSON.parse(e.postData.contents);
     const fn = String(req.fn || '');
@@ -18,9 +517,23 @@ function doPost(e) {
       throw new Error('Function not allowed: ' + fn);
     }
     const data = this[fn].apply(null, req.args || []);
+    if (ACTIVE_JSON_WORKBOOK) ACTIVE_JSON_WORKBOOK.save();
     out = { data: data === undefined ? null : data };
   } catch (err) {
     out = { __error: String(err && err.message ? err.message : err) };
+    if (ACTIVE_JSON_WORKBOOK) {
+      try {
+        ACTIVE_JSON_WORKBOOK.save();
+      } catch (saveError) {
+        out.__error += ' | Lỗi lưu JSON: ' + String(saveError && saveError.message ? saveError.message : saveError);
+      }
+    }
+  } finally {
+    ACTIVE_JSON_WORKBOOK = null;
+    if (ACTIVE_JSON_WORKBOOK_LOCK) {
+      ACTIVE_JSON_WORKBOOK_LOCK.releaseLock();
+      ACTIVE_JSON_WORKBOOK_LOCK = null;
+    }
   }
   return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
 }
@@ -44,7 +557,7 @@ function getQuoteWorkbookTemplateBase64(loggedUser) {
 
 function writeSystemLog(maNV, hoTen, moduleName, actionName, targetId, detailMsg) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getDataWorkbook();
     let sheetLog = ss.getSheetByName('SystemLogs');
     if (!sheetLog) {
       sheetLog = ss.insertSheet('SystemLogs');
@@ -99,7 +612,7 @@ function hashPasswordSha256(plainText) {
 
 function checkLogin(maNV, matKhau) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet(); const sheetUsers = ss.getSheetByName('Users');
+    const ss = getDataWorkbook(); const sheetUsers = ss.getSheetByName('Users');
     if (!sheetUsers) return { success: false, message: "Không tìm thấy sheet 'Users'!" };
     const data = sheetUsers.getDataRange().getValues();
     const displayedEmployeeCodes = sheetUsers.getRange(1, 1, sheetUsers.getLastRow(), 1).getDisplayValues();
@@ -128,7 +641,7 @@ function checkLogin(maNV, matKhau) {
 function changePassword(maNV, oldPass, newPass) {
   if (String(maNV || '').replace(/^'/, '').trim().toLowerCase() === 'demo') return { success: false, message: 'Tài khoản demo chỉ được xem dữ liệu.' };
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet(); const sheetUsers = ss.getSheetByName('Users');
+    const ss = getDataWorkbook(); const sheetUsers = ss.getSheetByName('Users');
     const data = sheetUsers.getDataRange().getValues();
     const cleanMaNV = String(maNV || "").trim().toLowerCase();
     const oldPassHash = hashPasswordSha256(oldPass); const newPassHash = hashPasswordSha256(newPass);
@@ -146,7 +659,7 @@ function changePassword(maNV, oldPass, newPass) {
 }
 
 function getUserList() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet(); const sheetUsers = ss.getSheetByName('Users'); if (!sheetUsers) return [];
+  const ss = getDataWorkbook(); const sheetUsers = ss.getSheetByName('Users'); if (!sheetUsers) return [];
   if (sheetUsers.getLastRow() <= 1) return [];
   const data = sheetUsers.getDataRange().getValues();
   const displayedEmployeeCodes = sheetUsers.getRange(1, 1, sheetUsers.getLastRow(), 1).getDisplayValues();
@@ -191,7 +704,7 @@ function buildUserDisplayMap() {
 
 function getAllKhachHangData() {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet(); 
+    const ss = getDataWorkbook();
     let sheet = ss.getSheetByName('KhachHang'); 
     if (!sheet) {
       sheet = ss.insertSheet('KhachHang');
@@ -221,7 +734,7 @@ function getAllKhachHangData() {
 function saveKhachHangItem(itemData, loggedUser) {
   if (isDemoReadOnlyUser(loggedUser)) return demoReadOnlyError();
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet(); 
+    const ss = getDataWorkbook();
     let sheet = ss.getSheetByName('KhachHang');
     if (!sheet) { sheet = ss.insertSheet('KhachHang'); sheet.appendRow(["MaKH", "TenKhachHang", "Nguoilienhe", "NguoiTao", "NgayTao"]); }
 
@@ -292,7 +805,7 @@ function deleteKhachHangItem(maKHToDelete, loggedUser) {
     const cleanMaKH = String(maKHToDelete || "").trim().toUpperCase();
     if (!cleanMaKH) return { success: false, message: "Mã khách hàng không hợp lệ!" };
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getDataWorkbook();
     const sheetKH = ss.getSheetByName('KhachHang');
     if (!sheetKH || sheetKH.getLastRow() <= 1) return { success: false, message: `Không tìm thấy khách hàng [${cleanMaKH}]!` };
     if (getCatalogUsageMaps().customerCodes.has(cleanMaKH)) return { success: false, message: `Không thể xóa khách hàng [${cleanMaKH}] vì đang được sử dụng trong phiếu tính giá OEM.` };
@@ -310,7 +823,7 @@ function deleteKhachHangItem(maKHToDelete, loggedUser) {
 
 function getAllDmvtData() {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet(); const sheet = ss.getSheetByName('DMVT');
+    const ss = getDataWorkbook(); const sheet = ss.getSheetByName('DMVT');
     if (!sheet || sheet.getLastRow() <= 1) return [];
 
     const userDisplayMap = buildUserDisplayMap();
@@ -330,7 +843,7 @@ function getAllDmvtData() {
 function saveDmvtItem(itemData, loggedUser) {
   if (isDemoReadOnlyUser(loggedUser)) return demoReadOnlyError();
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet(); let sheet = ss.getSheetByName('DMVT');
+    const ss = getDataWorkbook(); let sheet = ss.getSheetByName('DMVT');
     if (!sheet) { sheet = ss.insertSheet('DMVT'); sheet.appendRow(["MaVatTu", "TenVatTu", "DonVi", "Nhom", "MaNVTH", "NgayTao"]); }
 
     const cleanMaVT = String(itemData.maVatTu || "").trim().toUpperCase(); const cleanTenVT = String(itemData.tenVatTu || "").trim();
@@ -398,7 +911,7 @@ function deleteDmvtItem(maVatTuToDelete, loggedUser) {
     const cleanMaVT = String(maVatTuToDelete || "").trim().toUpperCase();
     if (!cleanMaVT) return { success: false, message: "Mã không hợp lệ!" };
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getDataWorkbook();
     const sheetDmvt = ss.getSheetByName('DMVT');
     if (!sheetDmvt || sheetDmvt.getLastRow() <= 1) return { success: false, message: `Không tìm thấy mã [${cleanMaVT}]!` };
     if (getCatalogUsageMaps().materialCodes.has(cleanMaVT)) return { success: false, message: `Không thể xóa mã [${cleanMaVT}] vì đang được sử dụng trong BOM OEM hoặc phiếu tính giá OEM.` };
@@ -416,7 +929,7 @@ function deleteDmvtItem(maVatTuToDelete, loggedUser) {
 
 function getAllVatTuData(loggedUser) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet(); const sheetData = ss.getSheetByName('DuLieuVatTu'); const sheetDmvt = ss.getSheetByName('DMVT');
+    const ss = getDataWorkbook(); const sheetData = ss.getSheetByName('DuLieuVatTu'); const sheetDmvt = ss.getSheetByName('DMVT');
     if (!sheetData || sheetData.getLastRow() <= 1) return [];
 
     const role = String(loggedUser.chucVu || "").toLowerCase().trim(); const isQuanLy = (role === "quanly"); const myMaNV = String(loggedUser.maNV || "").trim().toLowerCase(); const myBP = String(loggedUser.bp || "").trim().toLowerCase();
@@ -465,10 +978,10 @@ function getReportPriceData(loggedUser) {
   if (!maNV) throw new Error("Vui lòng đăng nhập lại để xem dashboard.");
   const role = String(loggedUser && loggedUser.chucVu || "").trim().toLowerCase();
   const canSeeAll = role === "quanly" || role === "bod" || maNV === "demo";
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("DuLieuVatTu");
+  const sheet = getDataWorkbook().getSheetByName("DuLieuVatTu");
   if (!sheet || sheet.getLastRow() <= 1) return { total: 0, waiting: 0, pending: 0, received: 0, pendingItems: [] };
   const materialNames = {};
-  const dmvt = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("DMVT");
+  const dmvt = getDataWorkbook().getSheetByName("DMVT");
   if (dmvt && dmvt.getLastRow() > 1) {
     dmvt.getRange(2, 1, dmvt.getLastRow() - 1, 2).getValues().forEach(row => {
       materialNames[String(row[0] || "").trim().toUpperCase()] = String(row[1] || "").trim();
@@ -531,7 +1044,7 @@ function saveVatTu(formData, loggedUser) {
     const taiLieuDinhKem = String(formData.taiLieuDinhKem || "").trim();
     if (donGiaVal !== "" && Number(donGiaVal) > 0 && !ngayHetHanStr) return { success: false, message: "Đơn giá > 0 bắt buộc phải có Ngày hết hiệu lực!" };
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet(); const sheet = ss.getSheetByName('DuLieuVatTu');
+    const ss = getDataWorkbook(); const sheet = ss.getSheetByName('DuLieuVatTu');
     let finalId = formData.id ? String(formData.id).trim() : ""; let isUpdate = false;
     const cleanMaYC = String(formData.maNVYC || "").replace(/^'/, '').trim(); const cleanMaTH = String(formData.maNVTH || "").replace(/^'/, '').trim();
     const todayStr = Utilities.formatDate(new Date(), "GMT+7", "yyyy-MM-dd");
@@ -552,7 +1065,6 @@ function saveVatTu(formData, loggedUser) {
           const oldAttachment = String(old[13] || (typeof oldRequestDate === "string" && /^https?:\/\//i.test(oldRequestDate) ? oldRequestDate : "") || "").trim();
           const savedAttachment = taiLieuDinhKem || oldAttachment;
           sheet.getRange(i + 2, 1, 1, 14).setValues([[String(formData.maVatTu).trim(), String(formData.tenVatTu).trim(), String(formData.donVi).trim(), donGiaVal, ngayHetHanStr, String(formData.ghiChu).trim(), String(formData.vat).trim(), finalId, "'" + cleanMaYC, "'" + cleanMaTH, trangThai, ngayXacNhan, ngayYeuCau, savedAttachment]]);
-          setTaiLieuDinhKemHyperlink(sheet, i + 2, savedAttachment);
           isUpdate = true; break;
         }
       }
@@ -564,7 +1076,6 @@ function saveVatTu(formData, loggedUser) {
         finalId = String(maxId + 1);
       }
       sheet.appendRow([String(formData.maVatTu).trim(), String(formData.tenVatTu).trim(), String(formData.donVi).trim(), donGiaVal, ngayHetHanStr, String(formData.ghiChu).trim(), String(formData.vat).trim(), finalId, "'" + cleanMaYC, "'" + cleanMaTH, trangThai, ngayXacNhan, todayStr, taiLieuDinhKem]);
-      setTaiLieuDinhKemHyperlink(sheet, sheet.getLastRow(), taiLieuDinhKem);
     }
 
     writeSystemLog(loggedUser.maNV, loggedUser.hoTen, "BÁO GIÁ NVL", isUpdate ? "CẬP NHẬT" : "TẠO MỚI", finalId, `Trạng thái: ${trangThai}${taiLieuDinhKem ? ' | Tài liệu: ' + taiLieuDinhKem : ''}`);
@@ -577,7 +1088,7 @@ function importPriceRequestsFromExcelData(rowsArray, loggedUser) {
   try {
     if (!loggedUser || !loggedUser.maNV) return { success: false, message: 'Vui lòng đăng nhập lại trước khi import yêu cầu giá.' };
     if (!Array.isArray(rowsArray) || !rowsArray.length) return { success: false, message: 'File không có dòng dữ liệu.' };
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getDataWorkbook();
     const sheet = ss.getSheetByName('DuLieuVatTu');
     if (!sheet) return { success: false, message: "Không tìm thấy sheet 'DuLieuVatTu'." };
 
@@ -645,16 +1156,10 @@ function importPriceRequestsFromExcelData(rowsArray, loggedUser) {
   } catch (err) { return { success: false, message: 'Lỗi import yêu cầu giá NVL: ' + err.toString() }; }
 }
 
-function setTaiLieuDinhKemHyperlink(sheet, row, url) {
-  if (!url) return;
-  const richText = SpreadsheetApp.newRichTextValue().setText(url).setLinkUrl(url).build();
-  sheet.getRange(row, 14).setRichTextValue(richText);
-}
-
 function confirmVatTu(idToConfirm, loggedUser, sourceRow) {
   if (isDemoReadOnlyUser(loggedUser)) return demoReadOnlyError();
   try {
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('DuLieuVatTu');
+    const sheet = getDataWorkbook().getSheetByName('DuLieuVatTu');
     if (!sheet || sheet.getLastRow() <= 1) return { success: false, message: "Không tìm thấy ID" };
     const employee = String(loggedUser && loggedUser.maNV || "").replace(/^'/, "").trim().toLowerCase();
     const role = String(loggedUser && loggedUser.chucVu || "").trim().toLowerCase();
@@ -685,7 +1190,7 @@ function confirmVatTu(idToConfirm, loggedUser, sourceRow) {
 function deleteVatTu(idToDelete, loggedUser) {
   if (isDemoReadOnlyUser(loggedUser)) return demoReadOnlyError();
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet(); const sheet = ss.getSheetByName('DuLieuVatTu');
+    const ss = getDataWorkbook(); const sheet = ss.getSheetByName('DuLieuVatTu');
     if (!sheet || sheet.getLastRow() <= 1) return { success: false, message: "Không tìm thấy yêu cầu giá ID: " + idToDelete };
     if (getCatalogUsageMaps().quoteIds.has(String(idToDelete || '').replace(/^'/, '').trim())) return { success: false, message: `Không thể xóa yêu cầu giá ID [${idToDelete}] vì đã được sử dụng trong phiếu tính giá OEM.` };
     const idRange = sheet.getRange(2, 8, sheet.getLastRow() - 1, 1).getValues();
@@ -761,7 +1266,7 @@ function getLatestBomMaterialPriceMap(sheetVatTu) {
 
 function getAllBomData(loggedUser) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet(); const sheetBom = ss.getSheetByName('BOMOEM');
+    const ss = getDataWorkbook(); const sheetBom = ss.getSheetByName('BOMOEM');
     const sheetVatTu = ss.getSheetByName('DuLieuVatTu'); const sheetDmvt = ss.getSheetByName('DMVT');
     if (!sheetBom || sheetBom.getLastRow() <= 1) return [];
 
@@ -819,29 +1324,23 @@ function getAllBomData(loggedUser) {
 }
 
 function generateDailyVoucher(prefix, sheetName) {
-  const lock = LockService.getScriptLock();
-  lock.waitLock(30000);
-  try {
-    const date = Utilities.formatDate(new Date(), "GMT+7", "yyyyMMdd");
-    const voucherPrefix = prefix + date;
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
-    const vouchers = sheet && sheet.getLastRow() > 1
-      ? sheet.getRange(2, 2, sheet.getLastRow() - 1, 1).getDisplayValues().map(row => String(row[0] || "").trim())
-      : [];
-    const sequencePattern = new RegExp("^" + prefix + date + "(\\d{2})$");
-    const storedSequenceKey = "DAILY_VOUCHER_SEQUENCE:" + prefix + ":" + date;
-    const storedSequence = Number(PropertiesService.getScriptProperties().getProperty(storedSequenceKey)) || 0;
-    const maxSequence = vouchers.reduce((maximum, voucher) => {
-      const match = voucher.match(sequencePattern);
-      return match ? Math.max(maximum, Number(match[1])) : maximum;
-    }, storedSequence);
-    if (maxSequence >= 99) throw new Error("Đã đạt giới hạn 99 số phiếu " + prefix + " trong ngày " + date + ".");
-    const nextSequence = maxSequence + 1;
-    PropertiesService.getScriptProperties().setProperty(storedSequenceKey, String(nextSequence));
-    return voucherPrefix + String(nextSequence).padStart(2, "0");
-  } finally {
-    lock.releaseLock();
-  }
+  const date = Utilities.formatDate(new Date(), "GMT+7", "yyyyMMdd");
+  const voucherPrefix = prefix + date;
+  const sheet = getDataWorkbook().getSheetByName(sheetName);
+  const vouchers = sheet && sheet.getLastRow() > 1
+    ? sheet.getRange(2, 2, sheet.getLastRow() - 1, 1).getDisplayValues().map(row => String(row[0] || "").trim())
+    : [];
+  const sequencePattern = new RegExp("^" + prefix + date + "(\\d{2})$");
+  const storedSequenceKey = "DAILY_VOUCHER_SEQUENCE:" + prefix + ":" + date;
+  const storedSequence = Number(PropertiesService.getScriptProperties().getProperty(storedSequenceKey)) || 0;
+  const maxSequence = vouchers.reduce((maximum, voucher) => {
+    const match = voucher.match(sequencePattern);
+    return match ? Math.max(maximum, Number(match[1])) : maximum;
+  }, storedSequence);
+  if (maxSequence >= 99) throw new Error("Đã đạt giới hạn 99 số phiếu " + prefix + " trong ngày " + date + ".");
+  const nextSequence = maxSequence + 1;
+  PropertiesService.getScriptProperties().setProperty(storedSequenceKey, String(nextSequence));
+  return voucherPrefix + String(nextSequence).padStart(2, "0");
 }
 
 function generateBomVoucher() {
@@ -851,7 +1350,7 @@ function generateBomVoucher() {
 function saveBom(formData, loggedUser) {
   try {
     if (!hasBomAccess(loggedUser)) return { success: false, message: "Từ chối: Bạn không có quyền thao tác BOM OEM!" };
-    const ss = SpreadsheetApp.getActiveSpreadsheet(); let sheetBom = ss.getSheetByName('BOMOEM');
+    const ss = getDataWorkbook(); let sheetBom = ss.getSheetByName('BOMOEM');
     if (!sheetBom) {
       sheetBom = ss.insertSheet('BOMOEM');
       sheetBom.appendRow(["ID", "SoPhieu", "MaDuan", "TenDuan", "DvtDuan", "MaVatTu", "TenVatTu", "DvtVatTu", "TyLeSuDung", "GhiChu", "NguoiTao", "NgayTao", "NguoiDuyet", "NgayDuyet", "TrangThai", "GhiChuDuAn"]);
@@ -894,7 +1393,7 @@ function saveBomMaster(formData, loggedUser) {
     const soPhieu = String(formData.soPhieu || '').trim();
     const maDuan = String(formData.maDuan || '').trim();
     if (!soPhieu || !maDuan) return { success: false, message: 'Nhập đủ Số phiếu và Mã dự án.' };
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('BOMOEM');
+    const sheet = getDataWorkbook().getSheetByName('BOMOEM');
     if (!sheet || sheet.getLastRow() <= 1) return { success: false, message: 'Chưa có chi tiết BOM để lưu Master.' };
     const noteColumn = ensureBomProjectNoteColumn(sheet);
     const vouchers = sheet.getRange(2, 2, sheet.getLastRow() - 1, 1).getValues();
@@ -910,7 +1409,7 @@ function saveBomMaster(formData, loggedUser) {
 function approveBom(idToApprove, loggedUser) {
   try {
     if (!canApproveBom(loggedUser)) return { success: false, message: "Từ chối: Bạn không có quyền duyệt BOM OEM!" };
-    const ss = SpreadsheetApp.getActiveSpreadsheet(); const sheetBom = ss.getSheetByName('BOMOEM');
+    const ss = getDataWorkbook(); const sheetBom = ss.getSheetByName('BOMOEM');
     if (!sheetBom || sheetBom.getLastRow() <= 1) return { success: false, message: 'Không tìm thấy dữ liệu BOM để duyệt.' };
     const projectNoteColumn = ensureBomProjectNoteColumn(sheetBom);
     const allData = sheetBom.getRange(2, 1, sheetBom.getLastRow() - 1, projectNoteColumn).getValues();
@@ -942,7 +1441,7 @@ function approveBom(idToApprove, loggedUser) {
 function deleteBom(idToDelete, loggedUser) {
   try {
     if (!hasBomAccess(loggedUser)) return { success: false, message: "Từ chối: Bạn không có quyền xóa BOM OEM!" };
-    const ss = SpreadsheetApp.getActiveSpreadsheet(); const sheetBom = ss.getSheetByName('BOMOEM');
+    const ss = getDataWorkbook(); const sheetBom = ss.getSheetByName('BOMOEM');
     const idRange = sheetBom.getRange(2, 1, sheetBom.getLastRow() - 1, 1).getValues();
     for (let i = 0; i < idRange.length; i++) {
       if (String(idRange[i][0]).trim() === String(idToDelete).trim()) {
@@ -962,7 +1461,7 @@ function deleteBomProject(soPhieu, loggedUser) {
     if (!hasBomAccess(loggedUser)) return { success: false, message: "Từ chối: Bạn không có quyền xóa BOM OEM!" };
     const key = String(soPhieu || "").trim();
     if (!key) return { success: false, message: "Thiếu số phiếu BOM cần xóa." };
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("BOMOEM");
+    const sheet = getDataWorkbook().getSheetByName("BOMOEM");
     if (!sheet || sheet.getLastRow() <= 1) return { success: false, message: "Không tìm thấy dữ liệu BOM." };
     if (getCatalogUsageMaps().bomVersions.has(key.toUpperCase())) return { success: false, message: `Không thể xóa BOM [${key}] vì phiên bản này đã được sử dụng trong phiếu tính giá OEM.` };
     const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).getValues();
@@ -985,7 +1484,7 @@ function cloneEntireProjectBom(sourceSoPhieu, newMaDuan, newTenDuan, newDvtDuan,
     const cleanSoPhieu = String(sourceSoPhieu || "").trim(); const cleanNewMa = String(newMaDuan || "").trim().toUpperCase(); const cleanNewTen = String(newTenDuan || "").trim(); const cleanNewDvt = String(newDvtDuan || "Kg").trim();
     if (!cleanSoPhieu || !cleanNewMa || !cleanNewTen) return { success: false, message: "Vui lòng nhập đủ thông tin!" };
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet(); const sheetBom = ss.getSheetByName('BOMOEM');
+    const ss = getDataWorkbook(); const sheetBom = ss.getSheetByName('BOMOEM');
     const projectNoteColumn = ensureBomProjectNoteColumn(sheetBom);
     const allData = sheetBom.getRange(2, 1, sheetBom.getLastRow() - 1, projectNoteColumn).getValues();
     
@@ -1017,7 +1516,7 @@ const TINH_GIA_QUOTE_ID_HEADER = "IDYeuCauGia";
 const TINH_GIA_UPDATED_AT_HEADER = "NgayCapNhat";
 
 function getTinhGiaSheet(createIfMissing) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getDataWorkbook();
   let sheet = ss.getSheetByName(TINH_GIA_SHEET_NAME);
   if (!sheet && createIfMissing) {
     sheet = ss.insertSheet(TINH_GIA_SHEET_NAME);
@@ -1065,7 +1564,7 @@ function getCatalogUsageMaps() {
     customerCodes: new Set(),
     bomVersions: new Set()
   };
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getDataWorkbook();
   const costingSheet = ss.getSheetByName(TINH_GIA_SHEET_NAME);
   if (costingSheet && costingSheet.getLastRow() > 1) {
     const lastColumn = Math.max(costingSheet.getLastColumn(), TINH_GIA_HEADERS.length);
@@ -1186,7 +1685,7 @@ function getTinhGiaBomCostMap(sheetBom, latestQuoteMap) {
 function getTinhGiaMaterialQuoteDetails(maVatTu, phienBanBOM) {
   const code = String(maVatTu || "").trim().toUpperCase();
   if (!code) return null;
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getDataWorkbook();
   const latestMap = getLatestTinhGiaMaterialPriceMap(ss.getSheetByName("DuLieuVatTu"));
   const dmvt = ss.getSheetByName("DMVT");
   let group = "";
@@ -1231,7 +1730,7 @@ function getAllTinhGiaData(loggedUser, soPhieuFilter) {
   const materialMap = {};
   const projectMap = {};
   const customerMap = {};
-  const dmvt = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("DMVT");
+  const dmvt = getDataWorkbook().getSheetByName("DMVT");
   if (dmvt && dmvt.getLastRow() > 1) {
     dmvt.getRange(2, 1, dmvt.getLastRow() - 1, 4).getValues().forEach(row => {
       const code = String(row[0] || "").trim().toUpperCase();
@@ -1241,17 +1740,17 @@ function getAllTinhGiaData(loggedUser, soPhieuFilter) {
       projectMap[code] = item;
     });
   }
-  const customers = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("KhachHang");
+  const customers = getDataWorkbook().getSheetByName("KhachHang");
   if (customers && customers.getLastRow() > 1) {
     customers.getRange(2, 1, customers.getLastRow() - 1, 2).getValues().forEach(row => {
       const code = String(row[0] || "").trim().toUpperCase();
       if (code) customerMap[code] = String(row[1] || "").trim();
     });
   }
-  const latestPrices = getLatestTinhGiaMaterialPriceMap(SpreadsheetApp.getActiveSpreadsheet().getSheetByName("DuLieuVatTu"));
-  const bomCostMap = getTinhGiaBomCostMap(SpreadsheetApp.getActiveSpreadsheet().getSheetByName("BOMOEM"), latestPrices);
+  const latestPrices = getLatestTinhGiaMaterialPriceMap(getDataWorkbook().getSheetByName("DuLieuVatTu"));
+  const bomCostMap = getTinhGiaBomCostMap(getDataWorkbook().getSheetByName("BOMOEM"), latestPrices);
   const quoteById = {};
-  const sheetVatTu = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("DuLieuVatTu");
+  const sheetVatTu = getDataWorkbook().getSheetByName("DuLieuVatTu");
   if (sheetVatTu && sheetVatTu.getLastRow() > 1) {
     sheetVatTu.getRange(2, 1, sheetVatTu.getLastRow() - 1, Math.max(14, sheetVatTu.getLastColumn())).getValues().forEach(row => {
       const quoteId = String(row[7] || "").replace(/^'/, "").trim();
@@ -1401,7 +1900,7 @@ function updateTinhGiaProjectQuoteStatus(sheet, voucher) {
   const matching = rows.map((row, index) => ({ row, rowNumber: index + 2 }))
     .filter(item => String(item.row[1] || "").trim() === String(voucher || "").trim());
   if (!matching.length || !["Chờ trình giá", "Chờ cung cấp giá NVL"].includes(String(matching[0].row[15] || "").trim())) return;
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getDataWorkbook();
   const dmvt = ss.getSheetByName("DMVT");
   const groupByCode = {};
   if (dmvt && dmvt.getLastRow() > 1) {
@@ -1480,8 +1979,8 @@ function setTinhGiaProjectStatus(soPhieu, nextStatus, loggedUser, approvedPrice)
     if (nextStatus === "Đã duyệt giá" && !isTinhGiaSubmittedStatus(currentStatus)) return { success: false, message: "Chỉ có thể duyệt phiếu đã trình giá." };
     if (nextStatus === "Đã duyệt giá" && String(loggedUser && loggedUser.chucVu || "").trim().toLowerCase() !== "bod") return { success: false, message: "Chỉ chức vụ BOD mới có quyền duyệt giá." };
     const finalApprovedPrice = Number(approvedPrice) || 0;
-    const latestQuoteMap = getLatestTinhGiaMaterialPriceMap(SpreadsheetApp.getActiveSpreadsheet().getSheetByName("DuLieuVatTu"));
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const latestQuoteMap = getLatestTinhGiaMaterialPriceMap(getDataWorkbook().getSheetByName("DuLieuVatTu"));
+    const ss = getDataWorkbook();
     const groupByCode = {};
     const dmvt = ss.getSheetByName("DMVT");
     if (dmvt && dmvt.getLastRow() > 1) {
@@ -1648,7 +2147,7 @@ function importTinhGiaFromExcelData(rowsArray, loggedUser) {
   try {
     if (!canManageTinhGia(loggedUser)) return { success: false, message: "Từ chối: Bạn không có quyền import Tính Giá OEM." };
     if (!Array.isArray(rowsArray) || !rowsArray.length) return { success: false, message: "File import không có dòng chi phí hợp lệ." };
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getDataWorkbook();
     const sheet = getTinhGiaSheet(true);
     const columnMap = getTinhGiaColumnMap(sheet);
     const dmvt = ss.getSheetByName("DMVT");
@@ -1740,7 +2239,7 @@ function quickApproveFromDashboard(m, u) { return { success: true, message: "OK"
 function importBomFromExcelData(rowsArray, loggedUser) {
   try {
     if (!hasBomAccess(loggedUser)) return { success: false, message: "Từ chối: Bạn không có quyền import BOM OEM!" };
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getDataWorkbook();
     let sheetBom = ss.getSheetByName('BOMOEM');
     if (!sheetBom) {
       sheetBom = ss.insertSheet('BOMOEM');

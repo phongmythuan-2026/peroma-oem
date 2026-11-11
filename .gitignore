@@ -1,6 +1,7 @@
 *.gsheet
 *.xlsx
 Gas_Project_Attachments/
+DATA/*.json
 desktop.ini
 .clasp.json
 *.code-workspace
