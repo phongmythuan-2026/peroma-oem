@@ -487,15 +487,6 @@ function getDataWorkbook() {
   try {
     const folder = getJsonDataFolder();
     const migrationDone = PropertiesService.getScriptProperties().getProperty(JSON_DATA_MIGRATION_PROPERTY) === 'complete';
-    const catalogFiles = folder.getFilesByName(JSON_DATA_CATALOG_FILE);
-    const monthFiles = folder.getFiles();
-    let hasMonthlyJson = false;
-    while (monthFiles.hasNext()) {
-      if (/^\d{4}-\d{2}\.json$/.test(monthFiles.next().getName())) hasMonthlyJson = true;
-    }
-    if (migrationDone && !catalogFiles.hasNext() && !hasMonthlyJson) {
-      throw new Error('Không tìm thấy dữ liệu JSON trong thư mục DATA.');
-    }
     if (!migrationDone) migrateSpreadsheetDataToJson(folder);
     ACTIVE_JSON_WORKBOOK = new JsonDataWorkbook(folder);
     return ACTIVE_JSON_WORKBOOK;
