@@ -3,6 +3,19 @@
 window.GAS_API_URL = 'https://script.google.com/macros/s/AKfycbzQsZFtdxzwLt0iHp1PpaBjjMH1K7onXUtDDOtaX4Ly98aKeUuDD3lXt4FtJxhN1hfXYg/exec';
 
 (function () {
+  function announceDataSync(version) {
+    if (version === undefined || version === null) return;
+    const signal = { version: String(version), timestamp: Date.now() };
+    try {
+      localStorage.setItem('OEM_DATA_SYNC_SIGNAL', JSON.stringify(signal));
+    } catch (error) {
+      console.warn('Could not broadcast OEM data sync to other tabs:', error);
+    }
+    window.dispatchEvent(new CustomEvent('oem-data-sync', {
+      detail: { version: signal.version, source: 'local' }
+    }));
+  }
+
   function createRunner(success, failure) {
     return new Proxy({}, {
       get: function (_, name) {
@@ -21,6 +34,7 @@ window.GAS_API_URL = 'https://script.google.com/macros/s/AKfycbzQsZFtdxzwLt0iHp1
             .then(function (r) { return r.json(); })
             .then(function (res) {
               if (res && res.__error) throw new Error(res.__error);
+              if (res && res.syncVersion !== undefined) announceDataSync(res.syncVersion);
               if (success) success(res ? res.data : res);
             })
             .catch(function (err) {

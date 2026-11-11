@@ -142,8 +142,8 @@
     #modalTinhGiaMasterChild .tg-inline-editor-row .form-control { min-width: 0; height: 32px; padding: 3px 5px; font-size: 0.82rem; }
     #modalTinhGiaMasterChild .tg-inline-editor-row .input-with-action { min-width: 116px; }
     #modalTinhGiaMasterChild .tg-child-table tbody tr:hover td { background: #f2faf6; }
-    #modalTinhGiaMasterChild .tg-child-table .tg-quote-note { white-space: normal; overflow-wrap: anywhere; }
-    #modalTinhGiaMasterChild .tg-child-table .tg-quote-id { font-family: monospace; overflow-wrap: anywhere; white-space: normal; }
+    #modalTinhGiaMasterChild .tg-child-table .tg-quote-note { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #modalTinhGiaMasterChild .tg-child-table .tg-quote-id { font-family: monospace; overflow: hidden; overflow-wrap: normal; text-overflow: ellipsis; white-space: nowrap; }
     #modalTinhGiaMasterChild .modal-footer { flex: 0 0 auto; gap: 6px; padding: 10px 14px; border-top: 1px solid #e2e7ee; background: #fff; }
     #modalTinhGiaMasterChild .modal-footer .btn { min-height: 34px; padding-inline: 12px; }
     #modalTinhGiaMasterChild .tg-icon-action { display: inline-flex; width: 36px; min-width: 36px; height: 34px; align-items: center; justify-content: center; padding: 0 !important; }
@@ -198,8 +198,10 @@
     thead th.column-frozen-cell { z-index: 5 !important; background-color: #e2e8f0 !important; }
     .table-hover tbody tr:hover td.column-frozen-cell { background-color: #f1f5f9 !important; }
     .table td { vertical-align: middle; white-space: nowrap; font-size: 0.88rem; padding: 6px 8px; color: #1e293b; border-bottom: 1px solid #e2e8f0; }
-    .table td.text-wrap-cell { white-space: normal; min-width: 170px; }
+    .table td.text-wrap-cell { white-space: nowrap; min-width: 0; max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
     .ellipsis-text { display: block; width: 100%; max-width: 100%; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .table-reference-link { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; padding: 0; border: 0; background: none; color: #0d6efd; font: inherit; font-weight: 600; text-align: left; text-decoration: underline dotted; text-underline-offset: 2px; white-space: nowrap; cursor: pointer; }
+    .table-reference-link:hover, .table-reference-link:focus { color: #0756b3; }
     .row-action-container { display: inline-flex; }
     .row-action-trigger { width: 32px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
     .row-context-menu { display: none; position: fixed; z-index: 1080; min-width: 164px; max-width: calc(100vw - 16px); max-height: min(70vh, 360px); overflow-y: auto; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; background: #ffffff; box-shadow: 0 6px 18px rgba(15,23,42,0.18); }
@@ -207,8 +209,8 @@
     .row-context-menu-item { width: 100%; display: flex; align-items: center; gap: 9px; padding: 7px 9px; border: 0 !important; border-radius: 3px !important; background: transparent !important; color: #1e293b !important; text-align: left; white-space: nowrap; }
     .row-context-menu-item:hover, .row-context-menu-item:focus { background: #f1f5f9 !important; color: #0f172a !important; }
     .resizable-table { table-layout: fixed !important; }
-    .resizable-table tbody td { min-width: 0 !important; white-space: normal; overflow-wrap: anywhere; }
-    .resizable-table tbody td.text-wrap-cell { min-width: 0 !important; overflow-wrap: anywhere; }
+    .resizable-table tbody td { min-width: 0 !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
+    .resizable-table tbody td.text-wrap-cell { min-width: 0 !important; max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .resizable-table thead th { padding-right: 30px !important; }
     .column-freeze-button { position: absolute; top: 2px; right: 10px; width: 18px; height: 20px; padding: 0; border: 0; background: transparent; color: #64748b; opacity: 0; cursor: pointer; z-index: 5; }
     .resizable-table thead th:hover .column-freeze-button, .column-freeze-button:focus, .column-freeze-button.is-frozen { opacity: 1; }
@@ -240,7 +242,8 @@
     #modalBomMasterChild .bom-child-table-scroll th:nth-child(5), #modalBomMasterChild .bom-child-table-scroll td:nth-child(5) { width: 12%; }
     #modalBomMasterChild .bom-child-table-scroll th:nth-child(6), #modalBomMasterChild .bom-child-table-scroll td:nth-child(6) { width: 130px; }
     #modalBomMasterChild .bom-child-table-scroll th:nth-child(7), #modalBomMasterChild .bom-child-table-scroll td:nth-child(7) { width: 140px; }
-    #modalBomMasterChild .bom-child-table-scroll th, #modalBomMasterChild .bom-child-table-scroll td { overflow-wrap: anywhere; white-space: normal; }
+    #modalBomMasterChild .bom-child-table-scroll th { overflow-wrap: normal; white-space: nowrap; }
+    #modalBomMasterChild .bom-child-table-scroll td { overflow: hidden; overflow-wrap: normal; text-overflow: ellipsis; white-space: nowrap; }
     #modalBomMasterChild .bom-child-table-scroll thead th { position: sticky; top: 0; z-index: 2; }
     #modalBomMasterChild .bom-child-table-scroll tfoot th { position: sticky; bottom: 0; z-index: 2; background: #e2e8f0; }
     #modalBomMasterChild .bom-inline-editor-row td { padding: 4px; background: #f8fafc; vertical-align: top; }
@@ -753,6 +756,7 @@
   <div class="modal fade" id="modalBomMasterChild" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable"><div class="modal-content shadow"><div class="modal-header bg-success text-white py-2"><h6 class="modal-title fw-bold" id="bom-project-modal-title"><i class="fa-solid fa-cubes-stacked me-2"></i>BOM dự án</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><div id="bom-editor-form-host"></div><div class="d-flex justify-content-between align-items-center mb-2"><strong class="text-success">Danh sách dòng định mức</strong><button class="btn btn-outline-success btn-sm" id="bom-add-line-button" onclick="openBomLineForm()"><i class="fa-solid fa-plus me-1"></i>Thêm dòng</button></div><div class="table-responsive"><table class="table table-sm table-hover align-middle"><thead><tr><th>Thao tác</th><th class="sortable-column" onclick="sortModernTable('bomChild','maVatTu')">Mã VT</th><th class="sortable-column" onclick="sortModernTable('bomChild','tenVatTu')">Tên vật tư</th><th class="sortable-column" onclick="sortModernTable('bomChild','dvtVatTu')">Đvt</th><th class="text-end sortable-column" onclick="sortModernTable('bomChild','tyLeSuDung')">Tỷ lệ %</th><th class="text-end sortable-column" onclick="sortModernTable('bomChild','donGiaNL')">Đơn giá</th><th class="text-end sortable-column" onclick="sortModernTable('bomChild','thanhTienNL')">Thành tiền</th><th class="sortable-column" onclick="sortModernTable('bomChild','trangThai')">Trạng thái</th><th class="sortable-column" onclick="sortModernTable('bomChild','ghiChu')">Ghi chú</th></tr></thead><tbody id="bom-child-table-body"></tbody></table></div></div><div class="modal-footer"><button type="button" class="btn btn-outline-danger btn-sm d-none" id="bom-project-delete-button" onclick="confirmDeleteBomProject()">Xóa toàn bộ BOM</button><button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button></div></div></div></div>
   <div class="modal fade" id="modalTinhGiaMasterChild" tabindex="-1" aria-hidden="true"><div class="modal-dialog tg-modal-dialog modal-dialog-centered"><div class="modal-content shadow"><div class="modal-header bg-warning py-2"><h6 class="modal-title fw-bold text-dark" id="tg-project-modal-title"><i class="fa-solid fa-calculator me-2"></i>Dự án tính giá OEM</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div id="tg-editor-form-host"></div><div class="d-flex justify-content-between align-items-center mb-2"><strong class="text-warning-emphasis">Danh sách dòng chi phí</strong><button class="btn btn-outline-warning btn-sm" id="tg-add-line-button" onclick="openTinhGiaLineForm()"><i class="fa-solid fa-plus me-1"></i>Thêm dòng</button></div><div class="tg-child-table-wrap"><table class="table table-sm table-hover align-middle tg-child-table"><thead><tr><th>Chức năng</th><th>Mã vật tư</th><th>Tên vật tư</th><th>Đvt</th><th class="text-end">Số lượng</th><th class="text-end">Hao hụt (%)</th><th class="text-end">Đơn giá NVL</th><th class="text-end">Thành tiền</th><th>Ghi chú</th><th>Nhóm</th><th>Ngày hết hạn giá</th><th>Ghi chú yêu cầu giá</th><th>Phiên bản BOM</th><th>ID yêu cầu giá</th></tr></thead><tbody id="tg-child-table-body"></tbody></table></div></div><div class="modal-footer"><button type="button" class="btn btn-outline-secondary btn-sm d-none" id="tg-project-cancel-submit-button" onclick="cancelSubmitTinhGiaProject()">Hủy trình giá</button><button type="button" class="btn btn-outline-primary btn-sm d-none" id="tg-project-submit-button" onclick="submitTinhGiaProject()">Trình duyệt giá</button><button type="button" class="btn btn-outline-success btn-sm d-none" id="tg-project-approve-button" onclick="approveTinhGiaProjectFromModal()">Duyệt giá</button><button type="button" class="btn btn-outline-info btn-sm d-none" id="tg-project-clone-button" onclick="cloneTinhGiaProjectFromUi(activeTgProject.key)"><i class="fa-solid fa-copy me-1"></i>Nhân bản</button><button type="button" class="btn btn-outline-danger btn-sm d-none" id="tg-project-delete-button" onclick="deleteTinhGiaProjectFromModal()">Xóa phiếu</button><button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button></div></div></div></div>
   <div class="modal fade" id="modalDmvtForm" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content shadow"><div class="modal-header bg-primary text-white py-2"><h6 class="modal-title fw-bold">Danh mục vật tư</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body" id="dmvt-form-modal-host"></div></div></div></div>
+  <div class="modal fade" id="modalCatalogReference" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content shadow"><div class="modal-header bg-primary text-white py-2"><h6 class="modal-title fw-bold" id="catalog-reference-title">Chi tiết danh mục</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body" id="catalog-reference-body"></div><div class="modal-footer py-2"><div class="d-flex gap-2 me-auto" id="catalog-reference-actions"></div><button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button></div></div></div></div>
   <div class="modal fade" id="modalKhForm" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content shadow"><div class="modal-header bg-info py-2"><h6 class="modal-title fw-bold">Danh mục khách hàng</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body" id="kh-form-modal-host"></div></div></div></div>
   <div class="modal fade" id="modalImportBom" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content shadow"><div class="modal-header bg-success text-white py-2"><h6 class="modal-title fw-bold"><i class="fa-solid fa-file-import me-2"></i> Import BOM OEM</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="d-flex justify-content-between mb-3 bg-light p-2 border"><span>File mẫu chuẩn Excel</span><button class="btn btn-outline-success btn-sm" onclick="downloadBomTemplateExcel()"><i class="fa-solid fa-download"></i> Tải</button></div><div class="mb-3"><input type="file" id="bom-excel-file-input" class="form-control" accept=".xlsx, .xls"></div></div><div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button><button class="btn btn-success btn-sm" id="btn-submit-import-bom" onclick="processImportBomExcel()">Import</button></div></div></div></div>
   <div class="modal fade" id="modalPriceForm" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-xl modal-dialog-centered"><div class="modal-content shadow"><div class="modal-header bg-light py-2"><h6 class="modal-title fw-bold text-primary" id="modal-price-title"><i class="fa-solid fa-tags me-1"></i> Tạo yêu cầu báo giá</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="modal-price-mode"><input type="hidden" id="modal-price-editRowId"><div class="row g-3"><div class="col-md-3"><label class="form-label fw-semibold">Mã vật tư *</label><input type="text" id="modal-price-maVatTu" class="form-control" list="dmvt-shared-datalist" onchange="onPriceMaVatTuSelected('modal-price-maVatTu')"></div><div class="col-md-4"><label class="form-label fw-semibold">Tên vật tư</label><input type="text" id="modal-price-tenVatTu" class="form-control bg-light" readonly></div><div class="col-md-2"><label class="form-label fw-semibold">Đvt</label><input type="text" id="modal-price-donVi" class="form-control bg-light" readonly></div><div class="col-md-3"><label class="form-label fw-semibold">VAT</label><input type="text" id="modal-price-vat" class="form-control"></div><div class="col-md-3"><label class="form-label fw-semibold text-success">Đơn giá</label><input type="number" id="modal-price-donGia" class="form-control border-success" oninput="checkModalPriceExpiryRequirement()"></div><div class="col-md-3"><label class="form-label fw-semibold" id="modal-label-price-ngayHetHan">Ngày hết hiệu lực</label><input type="date" id="modal-price-ngayHetHan" class="form-control"></div><div class="col-md-3"><label class="form-label fw-semibold text-primary">Người thực hiện *</label><input type="text" id="modal-price-maNVTH" class="form-control" list="user-shared-datalist"></div><div class="col-md-4"><label class="form-label fw-semibold">Tài liệu đính kèm</label><div class="input-group"><input type="text" id="modal-price-taiLieu-link" class="form-control" readonly placeholder="Chưa có file..."><a id="modal-price-attachment-open" class="btn btn-outline-secondary d-none" target="_blank" rel="noopener noreferrer" title="Mở tài liệu"><i class="fa-solid fa-arrow-up-right-from-square"></i></a><input type="file" id="modal-price-file-upload" class="d-none" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.zip" onchange="uploadModalPriceAttachment()"><button class="btn btn-outline-success" id="modal-price-upload-button" type="button" onclick="document.getElementById('modal-price-file-upload').click()"><i class="fa-solid fa-paperclip me-1"></i> Chọn & tải lên</button></div></div><div class="col-12"><label class="form-label fw-semibold">Ghi chú</label><textarea id="modal-price-ghiChu" class="form-control" rows="3"></textarea></div></div></div><div class="modal-footer"><button type="button" class="btn btn-outline-info btn-sm d-none" id="modal-price-btn-clone" onclick="clonePriceItemFromModal()">Nhân bản</button><button type="button" class="btn btn-outline-primary btn-sm d-none" id="modal-price-btn-edit" onclick="editPriceItemFromModal()">Sửa</button><button type="button" class="btn btn-outline-danger btn-sm d-none" id="modal-price-btn-delete" onclick="deletePriceItemFromModal()">Xóa</button><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button><button class="btn btn-success btn-sm" id="modal-price-btn-save" onclick="submitPriceModal()">Lưu</button></div></div></div></div>
@@ -800,7 +804,125 @@
 
     function renderMaterialName(value) {
       const display = displaySensitiveName(value);
-      return `<span class="ellipsis-text" title="${display}">${display}</span>`;
+      return `<span class="ellipsis-text" title="${escapeReportHtml(display)}">${escapeReportHtml(display)}</span>`;
+    }
+
+    function renderReferenceLink(type, key, label) {
+      const display = escapeReportHtml(label == null || label === '' ? key : label);
+      if (key == null || key === '') return display;
+      const encodedKey = encodeURIComponent(String(key == null ? '' : key)).replace(/'/g, '%27');
+      return `<button type="button" class="table-reference-link" title="${display}" onclick="openReferenceDetail('${type}','${encodedKey}')">${display}</button>`;
+    }
+
+    function renderEllipsisText(value) {
+      const display = displaySensitiveText(value);
+      const safeDisplay = escapeReportHtml(display);
+      return `<span class="ellipsis-text" title="${safeDisplay}">${safeDisplay}</span>`;
+    }
+
+    function showCatalogReferenceDetail(title, fields, actions) {
+      document.getElementById('catalog-reference-title').textContent = title;
+      document.getElementById('catalog-reference-body').innerHTML = fields.map(field =>
+        `<div class="row g-2 py-2 border-bottom"><div class="col-4 text-muted fw-semibold">${escapeReportHtml(field.label)}</div><div class="col-8" style="white-space:pre-wrap;overflow-wrap:anywhere">${escapeReportHtml(field.value || '-')}</div></div>`
+      ).join('');
+      document.getElementById('catalog-reference-actions').innerHTML = actions.join('');
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCatalogReference')).show();
+    }
+
+    function openDmvtReferenceItem(item) {
+      const encodedItem = encodeURIComponent(JSON.stringify(item)).replace(/'/g, '%27');
+      const actions = [];
+      if (canEditDmvtItem(item)) {
+        actions.push(`<button type="button" class="btn btn-outline-info btn-sm" onclick="runCatalogReferenceAction('material','clone','${encodedItem}')">Nhân bản</button>`);
+        actions.push(`<button type="button" class="btn btn-outline-primary btn-sm" onclick="runCatalogReferenceAction('material','edit','${encodedItem}')">Sửa</button>`);
+        actions.push(item.usedInBomOrTinhGia
+          ? '<button type="button" class="btn btn-outline-secondary btn-sm" disabled title="Đang được sử dụng trong BOM hoặc phiếu tính giá">Xóa</button>'
+          : `<button type="button" class="btn btn-outline-danger btn-sm" onclick="runCatalogReferenceAction('material','delete','${encodedItem}')">Xóa</button>`);
+      } else if (!isDemoReadOnly()) {
+        actions.push('<button type="button" class="btn btn-outline-secondary btn-sm" disabled title="Không có quyền sửa danh mục vật tư">Chỉ xem</button>');
+      }
+      if (!isDemoReadOnly()) actions.push(`<button type="button" class="btn btn-warning btn-sm" onclick="runCatalogReferenceAction('material','request-price','${encodedItem}')">Yêu cầu giá</button>`);
+      showCatalogReferenceDetail('Chi tiết vật tư / dự án', [
+        { label: 'Mã', value: item.maVatTu },
+        { label: 'Tên', value: item.tenVatTu },
+        { label: 'Nhóm', value: item.nhom },
+        { label: 'Đơn vị tính', value: item.donVi },
+        { label: 'Người tạo', value: item.displayTH },
+        { label: 'Ngày tạo', value: item.ngayTao }
+      ], actions);
+    }
+
+    function openKhReferenceItem(item) {
+      const encodedItem = encodeURIComponent(JSON.stringify(item)).replace(/'/g, '%27');
+      const actions = [];
+      if (!isDemoReadOnly()) {
+        actions.push(`<button type="button" class="btn btn-outline-primary btn-sm" onclick="runCatalogReferenceAction('customer','edit','${encodedItem}')">Sửa</button>`);
+        actions.push(item.usedInTinhGia
+          ? '<button type="button" class="btn btn-outline-secondary btn-sm" disabled title="Đang được sử dụng trong phiếu tính giá">Xóa</button>'
+          : `<button type="button" class="btn btn-outline-danger btn-sm" onclick="runCatalogReferenceAction('customer','delete','${encodedItem}')">Xóa</button>`);
+      }
+      showCatalogReferenceDetail('Chi tiết khách hàng', [
+        { label: 'Mã khách hàng', value: item.maKH },
+        { label: 'Tên khách hàng', value: item.tenKhachHang },
+        { label: 'Người liên hệ', value: item.nguoiLienHe },
+        { label: 'Người tạo', value: item.displayTao },
+        { label: 'Ngày tạo', value: item.ngayTao }
+      ], actions);
+    }
+
+    function openReferenceDetail(type, encodedKey) {
+      const key = decodeURIComponent(encodedKey);
+      if (type === 'material') {
+        const item = fullDmvtData.find(row => String(row.maVatTu).toUpperCase() === key.toUpperCase());
+        if (item) return openDmvtReferenceItem(item);
+        google.script.run.withSuccessHandler(data => {
+          fullDmvtData = data || [];
+          updateDmvtUnitAutocomplete();
+          populateDmvtDataLists(fullDmvtData);
+          const found = fullDmvtData.find(row => String(row.maVatTu).toUpperCase() === key.toUpperCase());
+          if (found) openDmvtReferenceItem(found);
+          else showAlert('Không tìm thấy mã vật tư/dự án ' + key, true);
+        }).withFailureHandler(err => showAlert('Không tải được thông tin vật tư/dự án: ' + err.message, true)).getAllDmvtData();
+        return;
+      }
+      if (type === 'customer') {
+        const item = fullKhData.find(row => String(row.maKH).toUpperCase() === key.toUpperCase());
+        if (item) return openKhReferenceItem(item);
+        google.script.run.withSuccessHandler(data => {
+          fullKhData = data || [];
+          populateKhDataList(fullKhData);
+          const found = fullKhData.find(row => String(row.maKH).toUpperCase() === key.toUpperCase());
+          if (found) openKhReferenceItem(found);
+          else showAlert('Không tìm thấy khách hàng ' + key, true);
+        }).withFailureHandler(err => showAlert('Không tải được thông tin khách hàng: ' + err.message, true)).getAllKhachHangData();
+        return;
+      }
+      if (type === 'bom') return openBomProject(key);
+      if (type === 'tinhgia') return openTinhGiaProject(key);
+      if (type === 'price') {
+        const item = (reportPriceSummary.items || []).find(row => String(row.id) === key) || fullPriceData.find(row => String(row.id) === key);
+        if (item) return openPriceModal('view', encodeURIComponent(JSON.stringify(item)));
+        return showAlert('Không tìm thấy yêu cầu giá ' + key, true);
+      }
+      showAlert('Loại dữ liệu tham chiếu không hợp lệ.', true);
+    }
+
+    function runCatalogReferenceAction(type, action, encodedItem) {
+      const item = JSON.parse(decodeURIComponent(encodedItem));
+      const safeEncodedItem = encodeURIComponent(JSON.stringify(item)).replace(/'/g, '%27');
+      const modal = bootstrap.Modal.getInstance(document.getElementById('modalCatalogReference'));
+      if (modal) modal.hide();
+      setTimeout(() => {
+        if (type === 'material') {
+          if (action === 'edit') editDmvtItem(safeEncodedItem);
+          else if (action === 'clone') cloneDmvtItem(safeEncodedItem);
+          else if (action === 'delete') deleteDmvtItem(item.maVatTu);
+          else if (action === 'request-price') openRequestPriceFromDmvt(safeEncodedItem);
+        } else if (type === 'customer') {
+          if (action === 'edit') editKhItem(safeEncodedItem);
+          else if (action === 'delete') deleteKhItem(item.maKH);
+        }
+      }, 350);
     }
 
     let activeRowActionMenu = null;
@@ -1209,6 +1331,7 @@
       mountFormCard('kh-form-card', 'kh-form-modal-host');
       installResizableTableObserver();
       applyFileUploadAvailability();
+      initializeRealtimeDataSync();
       const sessionUser = sessionStorage.getItem('logged_user');
       if (sessionUser) { currentUser = JSON.parse(sessionUser); showAppScreen(currentUser); }
     };
@@ -1253,8 +1376,11 @@
       if (demoReadOnly) ['tab-nav-report', 'tab-nav-price', 'tab-nav-bom', 'tab-nav-tinhgia', 'tab-nav-kh', 'tab-nav-dmvt'].forEach(id => document.getElementById(id).classList.remove('d-none'));
 
       switchTab( (isQuanLy || isBOD || bp === 'RD' || isQuanLyRD || demoReadOnly) ? 'report' : 'price' );
-      loadUserList(); loadAllKhachHangData(); loadAllDmvtData(); loadAllPriceData(); loadAllBomData();
-      if (isQuanLy || isBOD || demoReadOnly) loadAllTinhGiaData();
+      startRealtimeDataSync();
+      if (activeTabId !== 'report') {
+        loadUserList();
+        loadAllDmvtData();
+      }
     }
 
     function switchTab(tab) {
@@ -1342,9 +1468,118 @@
     let reportQueuePageSize = 10;
     let reportPriceSummary = { total: 0, waiting: 0, pending: 0, received: 0, items: [], pendingItems: [] };
     let reportPendingItems = [];
-    function loadReportData() {
+    const DATA_SYNC_INTERVAL_MS = 5000;
+    const DATA_SYNC_STORAGE_KEY = 'OEM_DATA_SYNC_SIGNAL';
+    let dataSyncTimer = null;
+    let dataSyncCheckInProgress = false;
+    let dataSyncRefreshInProgress = false;
+    let pendingDataSyncRefresh = false;
+    let lastDataSyncVersion = '';
+    let dataSyncFailureLogged = false;
+
+    function handleDataSyncVersion(version, source) {
+      if (version === undefined || version === null) return;
+      const nextVersion = String(version);
+      if (source === 'local') {
+        lastDataSyncVersion = nextVersion;
+        return;
+      }
+      if (!lastDataSyncVersion) {
+        lastDataSyncVersion = nextVersion;
+        if (source === 'storage' && currentUser) {
+          pendingDataSyncRefresh = true;
+          refreshPendingDataSync();
+        }
+        return;
+      }
+      if (nextVersion !== lastDataSyncVersion) {
+        lastDataSyncVersion = nextVersion;
+        pendingDataSyncRefresh = true;
+      }
+      refreshPendingDataSync();
+    }
+
+    function pollDataSyncVersion() {
+      if (!currentUser || dataSyncCheckInProgress || document.visibilityState === 'hidden') return;
+      dataSyncCheckInProgress = true;
+      google.script.run.withSuccessHandler(version => {
+        dataSyncCheckInProgress = false;
+        dataSyncFailureLogged = false;
+        handleDataSyncVersion(version);
+      }).withFailureHandler(error => {
+        dataSyncCheckInProgress = false;
+        if (!dataSyncFailureLogged) {
+          console.error('Không kiểm tra được trạng thái đồng bộ dữ liệu:', error);
+          dataSyncFailureLogged = true;
+        }
+      }).getDataSyncVersion();
+    }
+
+    function startRealtimeDataSync() {
+      if (dataSyncTimer) clearInterval(dataSyncTimer);
+      lastDataSyncVersion = '';
+      pollDataSyncVersion();
+      dataSyncTimer = setInterval(pollDataSyncVersion, DATA_SYNC_INTERVAL_MS);
+    }
+
+    function refreshPendingDataSync() {
+      if (!pendingDataSyncRefresh || !currentUser || dataSyncRefreshInProgress) return;
+      if (document.querySelector('.modal.show')) return;
+      pendingDataSyncRefresh = false;
+      dataSyncRefreshInProgress = true;
+      let remaining = 0;
+      const finish = () => {
+        remaining--;
+        if (remaining > 0) return;
+        dataSyncRefreshInProgress = false;
+        refreshPendingDataSync();
+      };
+      const load = loader => {
+        remaining++;
+        loader(finish);
+      };
+      if (activeTabId === 'report') {
+        load(done => loadReportData(done));
+      } else if (activeTabId === 'price') {
+        load(done => loadAllPriceData(done));
+        load(done => loadAllDmvtData(done));
+        load(done => loadUserList(done));
+      } else if (activeTabId === 'bom') {
+        load(done => loadAllBomData(done));
+        load(done => loadAllDmvtData(done));
+      } else if (activeTabId === 'tinhgia') {
+        load(done => loadAllTinhGiaData(done, false));
+        load(done => loadAllDmvtData(done));
+        load(done => loadAllKhachHangData(done));
+      } else if (activeTabId === 'kh') {
+        load(done => loadAllKhachHangData(done));
+      } else if (activeTabId === 'dmvt') {
+        load(done => loadAllDmvtData(done));
+      }
+      if (!remaining) dataSyncRefreshInProgress = false;
+    }
+
+    function initializeRealtimeDataSync() {
+      window.addEventListener('oem-data-sync', event => {
+        handleDataSyncVersion(event.detail && event.detail.version, event.detail && event.detail.source);
+      });
+      window.addEventListener('storage', event => {
+        if (event.key !== DATA_SYNC_STORAGE_KEY || !event.newValue) return;
+        try {
+          handleDataSyncVersion(JSON.parse(event.newValue).version, 'storage');
+        } catch (error) {
+          console.error('Tín hiệu đồng bộ OEM không hợp lệ:', error);
+        }
+      });
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') pollDataSyncVersion();
+      });
+      document.addEventListener('hidden.bs.modal', refreshPendingDataSync);
+    }
+
+    function loadReportData(done) {
       ensureReportQueuePagination();
-      loadReportDashboardData();
+      loadReportDashboardData(done);
     }
     function ensureReportQueuePagination() {
       if (document.getElementById('report-queue-pagination-nav')) return;
@@ -1355,27 +1590,25 @@
       footer.innerHTML = '<small class="text-muted" id="report-queue-page-info"></small><div class="d-flex gap-2"><select id="report-queue-page-size" class="form-select form-select-sm w-auto" aria-label="Số yêu cầu mỗi trang" onchange="changeReportQueuePageSize()"><option value="10" selected>10 dòng</option><option value="25">25 dòng</option><option value="50">50 dòng</option></select><ul class="pagination pagination-sm mb-0" id="report-queue-pagination-nav"></ul></div>';
       queue.appendChild(footer);
     }
-    function loadReportDashboardData() {
+    function loadReportDashboardData(done) {
       document.getElementById('report-pending-body').innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Đang tải dữ liệu...</td></tr>';
-      const role = currentUser ? String(currentUser.chucVu || '').trim().toLowerCase() : '';
-      const canViewTinhGia = ['quanly', 'bod'].includes(role) || isDemoReadOnly();
-      let remaining = canViewTinhGia ? 5 : 4;
-      let failed = false;
-      const settle = () => {
-        remaining--;
-        if (remaining > 0) return;
+      google.script.run.withSuccessHandler(data => {
+        reportPriceSummary = data.priceSummary || reportPriceSummary;
+        fullBomData = data.bomData || [];
+        fullDmvtData = data.dmvtData || [];
+        fullKhData = data.khData || [];
+        fullTgData = data.tinhGiaData || [];
+        updateDmvtUnitAutocomplete();
+        populateDmvtDataLists(fullDmvtData);
+        populateKhDataList(fullKhData);
+        populateUserList(data.users || []);
         renderReportDashboard();
-        if (failed) showAlert('Một số phân hệ chưa tải được dữ liệu dashboard. Hãy bấm Làm mới để thử lại.', true);
-      };
-      google.script.run.withSuccessHandler(data => { reportPriceSummary = data || reportPriceSummary; settle(); }).withFailureHandler(() => { failed = true; settle(); }).getReportPriceData(currentUser);
-      google.script.run.withSuccessHandler(data => { fullBomData = data || []; settle(); }).withFailureHandler(() => { failed = true; settle(); }).getAllBomData(currentUser);
-      google.script.run.withSuccessHandler(data => { fullDmvtData = data || []; settle(); }).withFailureHandler(() => { failed = true; settle(); }).getAllDmvtData();
-      google.script.run.withSuccessHandler(data => { fullKhData = data || []; settle(); }).withFailureHandler(() => { failed = true; settle(); }).getAllKhachHangData();
-      if (canViewTinhGia) {
-        google.script.run.withSuccessHandler(data => { fullTgData = data || []; settle(); }).withFailureHandler(() => { failed = true; settle(); }).getAllTinhGiaData(currentUser);
-      } else {
-        fullTgData = [];
-      }
+        if (typeof done === 'function') done();
+      }).withFailureHandler(err => {
+        document.getElementById('report-pending-body').innerHTML = '<tr><td colspan="7" class="text-center text-danger py-4">Không tải được dữ liệu dashboard.</td></tr>';
+        showAlert('Không tải được dữ liệu dashboard: ' + err.message, true);
+        if (typeof done === 'function') done();
+      }).getReportDashboardData(currentUser);
     }
     function escapeReportHtml(value) {
       return String(value == null ? '' : value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -1574,7 +1807,11 @@
         if (!isDemoReadOnly() && item.kind === 'tinhgia' && isTgSubmittedStatus(item.status) && ['quanly', 'bod'].includes(role) && isTgProjectCreator(getTgProjects(fullTgData).find(project => project.key === item.key))) buttons.push(`<button type="button" class="btn btn-outline-secondary btn-sm report-queue-action" title="Hủy trình giá" aria-label="Hủy trình giá" data-report-action="cancel-tg" data-report-key="${escapeReportHtml(item.key)}"><i class="fa-solid fa-arrow-rotate-left"></i></button>`);
         if (!isDemoReadOnly() && item.kind === 'tinhgia' && isTgSubmittedStatus(item.status) && role === 'bod') buttons.push(`<button type="button" class="btn btn-success btn-sm report-queue-action" title="Duyệt giá" aria-label="Duyệt giá" data-report-action="approve-tg" data-report-key="${escapeReportHtml(item.key)}"><i class="fa-solid fa-stamp"></i></button>`);
         if (!isDemoReadOnly() && item.kind === 'tinhgia' && ['Chờ trình giá', 'Chờ cung cấp giá NVL'].includes(item.status) && ['quanly', 'bod'].includes(role)) buttons.push(`<button type="button" class="btn btn-outline-primary btn-sm report-queue-action" title="Trình giá" aria-label="Trình giá" data-report-action="submit-tg" data-report-key="${escapeReportHtml(item.key)}"><i class="fa-solid fa-paper-plane"></i></button>`);
-        return `<tr><td><div class="d-flex align-items-center flex-wrap gap-1">${buttons.join('')}${quickMenu}</div></td><td><span class="badge bg-warning text-dark">${escapeReportHtml(item.status)}</span></td><td class="fw-semibold text-primary">${escapeReportHtml(item.reference)}</td><td>${escapeReportHtml(subject)}</td><td>${escapeReportHtml(item.owner || '-')}</td><td>${escapeReportHtml(item.date || '-')}</td><td>${escapeReportHtml(item.module)}</td></tr>`;
+        const referenceType = item.kind === 'price' ? 'price' : item.kind === 'bom' ? 'bom' : 'tinhgia';
+        const subjectHtml = item.code
+          ? `${renderReferenceLink('material', item.code, item.code)}${maskedName ? ` - ${escapeReportHtml(maskedName)}` : ''}`
+          : escapeReportHtml(subject);
+        return `<tr><td><div class="d-flex align-items-center flex-wrap gap-1">${buttons.join('')}${quickMenu}</div></td><td><span class="badge bg-warning text-dark">${escapeReportHtml(item.status)}</span></td><td class="fw-semibold text-primary">${renderReferenceLink(referenceType, item.key, item.reference)}</td><td>${subjectHtml}</td><td>${escapeReportHtml(item.owner || '-')}</td><td>${escapeReportHtml(item.date || '-')}</td><td>${escapeReportHtml(item.module)}</td></tr>`;
       }).join('');
       tbody.querySelectorAll('[data-report-open]').forEach(button => button.addEventListener('click', () => openReportPendingItem(button.dataset.reportOpen, button.dataset.reportKey)));
       tbody.querySelectorAll('[data-report-quick-action]').forEach(button => button.addEventListener('click', () => runReportQuickAction(button.dataset.reportQuickAction, button.dataset.reportQuick, button.dataset.reportKey)));
@@ -1659,12 +1896,54 @@
       }
     }
 
-    function loadUserList() {
-      google.script.run.withSuccessHandler(function(list) {
-        const dl = document.getElementById('user-shared-datalist'); dl.innerHTML = '';
-        list.forEach(u => { const opt = document.createElement('option'); opt.value = u.maNV; opt.label = formatEmployeeDisplay(u); dl.appendChild(opt); });
-        document.getElementById('m-price-maNVTH').onchange = function() { formatEmployeeInput(this); };
+    function populateUserList(list) {
+      const dl = document.getElementById('user-shared-datalist');
+      dl.replaceChildren(...list.map(user => {
+        const option = document.createElement('option');
+        option.value = user.maNV;
+        option.label = formatEmployeeDisplay(user);
+        return option;
+      }));
+      document.getElementById('m-price-maNVTH').onchange = function() { formatEmployeeInput(this); };
+    }
+
+    function loadUserList(done) {
+      google.script.run.withSuccessHandler(list => {
+        populateUserList(list || []);
+        if (typeof done === 'function') done();
+      }).withFailureHandler(err => {
+        showAlert('Không tải được danh sách nhân viên: ' + err.message, true);
+        if (typeof done === 'function') done();
       }).getUserList();
+    }
+
+    function populateKhDataList(data) {
+      const datalist = document.getElementById('kh-shared-datalist');
+      datalist.replaceChildren(...data.map(item => {
+        const option = document.createElement('option');
+        option.value = item.maKH;
+        option.label = displaySensitiveText(`${item.tenKhachHang} (${item.nguoiLienHe})`);
+        return option;
+      }));
+    }
+
+    function populateDmvtDataLists(data) {
+      const materialList = document.getElementById('dmvt-shared-datalist');
+      const finishedGoodsList = document.getElementById('tg-da-datalist');
+      materialList.replaceChildren();
+      finishedGoodsList.replaceChildren();
+      data.forEach(item => {
+        const option = document.createElement('option');
+        option.value = item.maVatTu;
+        option.label = `${displaySensitiveName(item.tenVatTu)} (${item.nhom})`;
+        materialList.appendChild(option);
+        if (String(item.nhom || '').toLowerCase().includes('thành phẩm') || String(item.nhom || '').toLowerCase().includes('btp')) {
+          const finishedGoodsOption = document.createElement('option');
+          finishedGoodsOption.value = item.maVatTu;
+          finishedGoodsOption.label = `${displaySensitiveName(item.tenVatTu)} (${item.nhom})`;
+          finishedGoodsList.appendChild(finishedGoodsOption);
+        }
+      });
     }
 
     function formatEmployeeDisplay(user) {
@@ -1696,9 +1975,11 @@
       document.getElementById('kh-table-body').innerHTML = '<tr><td colspan="6" class="text-center">Đang tải...</td></tr>';
       google.script.run.withSuccessHandler(function(data) {
         fullKhData = data || [];
-        const dl = document.getElementById('kh-shared-datalist'); dl.innerHTML = '';
-        fullKhData.forEach(i => { const opt = document.createElement('option'); opt.value = i.maKH; opt.label = displaySensitiveText(`${i.tenKhachHang} (${i.nguoiLienHe})`); dl.appendChild(opt); });
+        populateKhDataList(fullKhData);
         filterKhData();
+        if (typeof done === 'function') done();
+      }).withFailureHandler(err => {
+        showAlert('Không tải được danh sách khách hàng: ' + err.message, true);
         if (typeof done === 'function') done();
       }).getAllKhachHangData();
     }
@@ -1723,7 +2004,7 @@
           btns = `<button class="btn btn-outline-primary py-0 px-2" onclick="editKhItem('${encodeURIComponent(JSON.stringify(r))}')"><i class="fa-solid fa-pen"></i></button>`;
           btns += r.usedInTinhGia ? `<button class="btn btn-outline-secondary py-0 px-2 disabled" title="Đang được sử dụng trong phiếu tính giá"><i class="fa-solid fa-lock"></i></button>` : `<button class="btn btn-outline-danger py-0 px-2" onclick="deleteKhItem('${r.maKH}')"><i class="fa-solid fa-trash"></i></button>`;
         }
-        h += `<tr><td class="sticky-col-1 text-center">${renderRowActionMenu(btns)}</td><td class="sticky-col-2 text-info fw-bold">${r.maKH}</td><td class="text-wrap-cell">${displaySensitiveName(r.tenKhachHang)}</td><td>${r.nguoiLienHe}</td><td>${r.displayTao}</td><td>${r.ngayTao}</td></tr>`;
+        h += `<tr><td class="sticky-col-1 text-center">${renderRowActionMenu(btns)}</td><td class="sticky-col-2 text-info fw-bold">${renderReferenceLink('customer', r.maKH, r.maKH)}</td><td class="text-wrap-cell">${renderEllipsisText(r.tenKhachHang)}</td><td>${r.nguoiLienHe}</td><td>${r.displayTao}</td><td>${r.ngayTao}</td></tr>`;
       });
       tb.innerHTML = h; document.getElementById('kh-page-info').innerText = `Dòng ${start + 1} - ${start + pageData.length} / ${total}`; buildPaginationNav('kh-pagination-nav', khPage, totalPages, 'goToKhPage');
     }
@@ -1818,20 +2099,17 @@
       });
     }
 
-    function loadAllDmvtData() {
+    function loadAllDmvtData(done) {
       document.getElementById('dmvt-table-body').innerHTML = '<tr><td colspan="7" class="text-center">Đang tải...</td></tr>';
       google.script.run.withSuccessHandler(function(data) {
         fullDmvtData = data || [];
         updateDmvtUnitAutocomplete();
-        const dl = document.getElementById('dmvt-shared-datalist'); dl.innerHTML = '';
-        const dlDa = document.getElementById('tg-da-datalist'); dlDa.innerHTML = '';
-        fullDmvtData.forEach(i => { 
-          const opt = document.createElement('option'); opt.value = i.maVatTu; opt.label = `${displaySensitiveName(i.tenVatTu)} (${i.nhom})`; dl.appendChild(opt); 
-          if(i.nhom.toLowerCase().includes('thành phẩm') || i.nhom.toLowerCase().includes('btp')) {
-            const optDa = document.createElement('option'); optDa.value = i.maVatTu; optDa.label = `${displaySensitiveName(i.tenVatTu)} (${i.nhom})`; dlDa.appendChild(optDa);
-          }
-        });
+        populateDmvtDataLists(fullDmvtData);
         filterDmvtData();
+        if (typeof done === 'function') done();
+      }).withFailureHandler(err => {
+        showAlert('Không tải được danh mục vật tư/dự án: ' + err.message, true);
+        if (typeof done === 'function') done();
       }).getAllDmvtData();
     }
     function filterDmvtData() {
@@ -1864,7 +2142,7 @@
         else if (!isDemoReadOnly()) btns += `<button class="btn btn-outline-secondary py-0 px-2 disabled"><i class="fa-solid fa-lock"></i></button>`;
         if (!isDemoReadOnly()) btns += `<button class="btn btn-outline-warning text-dark py-0 px-2" onclick="openRequestPriceFromDmvt('${encodeURIComponent(JSON.stringify(r))}')"><i class="fa-solid fa-tag"></i></button>`;
         
-        h += `<tr><td class="sticky-col-1 text-center">${renderRowActionMenu(btns)}</td><td class="sticky-col-2 text-primary fw-bold">${r.maVatTu}</td><td>${renderMaterialName(r.tenVatTu)}</td><td><span class="badge bg-secondary">${r.nhom}</span></td><td>${r.donVi}</td><td>${r.displayTH}</td><td>${r.ngayTao}</td></tr>`;
+        h += `<tr><td class="sticky-col-1 text-center">${renderRowActionMenu(btns)}</td><td class="sticky-col-2 text-primary fw-bold">${renderReferenceLink('material', r.maVatTu, r.maVatTu)}</td><td>${renderMaterialName(r.tenVatTu)}</td><td><span class="badge bg-secondary">${r.nhom}</span></td><td>${r.donVi}</td><td>${r.displayTH}</td><td>${r.ngayTao}</td></tr>`;
       });
       tb.innerHTML = h; document.getElementById('dmvt-page-info').innerText = `Dòng ${start + 1} - ${start + pageData.length} / ${total}`; buildPaginationNav('dmvt-pagination-nav', dmvtPage, totalPages, 'goToDmvtPage');
     }
@@ -2140,7 +2418,7 @@
       renderPriceTable();
     }
 
-    function loadAllPriceData() { document.getElementById('price-table-body').innerHTML = '<tr><td colspan="15" class="text-center">Đang tải...</td></tr>'; google.script.run.withSuccessHandler(data => { fullPriceData = data || []; filterPriceData(); }).getAllVatTuData(currentUser); }
+    function loadAllPriceData(done) { document.getElementById('price-table-body').innerHTML = '<tr><td colspan="15" class="text-center">Đang tải...</td></tr>'; google.script.run.withSuccessHandler(data => { fullPriceData = data || []; filterPriceData(); if (typeof done === 'function') done(); }).withFailureHandler(err => { showAlert('Không tải được dữ liệu yêu cầu giá: ' + err.message, true); if (typeof done === 'function') done(); }).getAllVatTuData(currentUser); }
     function filterPriceData() { const q = document.getElementById('global-search-input').value.toLowerCase().trim(); const list = q ? fullPriceData.filter(i => (i.maVatTu || '').toLowerCase().includes(q) || (i.tenVatTu || '').toLowerCase().includes(q) || (i.trangThai || '').toLowerCase().includes(q)) : [...fullPriceData]; filteredPriceData = applyPriceSort(list); pricePage = 1; renderPriceTable(); }
     function canEditPriceRequest(item) {
       if (isDemoReadOnly() || !item || item.usedInTinhGia) return false;
@@ -2174,7 +2452,7 @@
           if(canC) btns += `<button class="btn btn-success py-0 px-2" onclick="confirmPriceItem('${r.id}')"><i class="fa-solid fa-check"></i></button>`;
         }
         let bClass = isDaNhan ? 'success' : (String(r.trangThai || '').includes("tiếp") ? 'info' : 'warning');
-        h += `<tr><td class="sticky-col-1 text-center">${renderRowActionMenu(btns)}</td><td class="sticky-col-2"><span class="badge bg-${bClass}">${r.trangThai}</span></td><td class="text-primary fw-bold">${r.maVatTu}</td><td>${renderMaterialName(r.tenVatTu)}</td><td>${r.donVi}</td><td class="text-danger fw-bold">${formatNum(r.donGia, 0)}${r.donGia ? ' đ' : 'Chưa có'}</td><td>${r.vat}</td><td>${r.ngayHetHan || '-'}</td><td class="small text-muted">${displaySensitiveText(r.ghiChu)}</td><td>${taiLieuHtml}</td><td>${r.ngayYeuCau || '-'}</td><td><span class="badge bg-light text-dark border">${r.displayYC}</span></td><td><span class="badge bg-light text-primary border">${r.displayTH}</span></td><td>${r.ngayXacNhan}</td><td><span class="badge bg-secondary">${r.id}</span></td></tr>`;
+        h += `<tr><td class="sticky-col-1 text-center">${renderRowActionMenu(btns)}</td><td class="sticky-col-2"><span class="badge bg-${bClass}">${r.trangThai}</span></td><td class="text-primary fw-bold">${renderReferenceLink('material', r.maVatTu, r.maVatTu)}</td><td>${renderMaterialName(r.tenVatTu)}</td><td>${r.donVi}</td><td class="text-danger fw-bold">${formatNum(r.donGia, 0)}${r.donGia ? ' đ' : 'Chưa có'}</td><td>${r.vat}</td><td>${r.ngayHetHan || '-'}</td><td class="small text-muted">${renderEllipsisText(r.ghiChu)}</td><td>${taiLieuHtml}</td><td>${r.ngayYeuCau || '-'}</td><td><span class="badge bg-light text-dark border">${r.displayYC}</span></td><td><span class="badge bg-light text-primary border">${r.displayTH}</span></td><td>${r.ngayXacNhan}</td><td><span class="badge bg-secondary">${renderReferenceLink('price', r.id, r.id)}</span></td></tr>`;
       });
       tb.innerHTML = h; document.getElementById('price-page-info').innerText = `Dòng ${start + 1} - ${start + pageData.length} / ${total}`; buildPaginationNav('price-pagination-nav', pricePage, totalPages, 'goToPricePage');
     }
@@ -2574,7 +2852,7 @@
         if (permissions.canModify) actions += `<button class="btn btn-outline-primary py-0 px-2" title="Sửa BOM" onclick="openBomProject(decodeURIComponent('${key}'))"><i class="fa-solid fa-pen"></i></button><button class="btn btn-outline-danger py-0 px-2" title="Xóa BOM" onclick="openBomProject(decodeURIComponent('${key}'),true)"><i class="fa-solid fa-trash"></i></button>`;
         if (permissions.canManage) actions += `<button class="btn btn-outline-info py-0 px-2" title="Nhân bản toàn bộ BOM" onclick="openCloneProjectModal('bom',decodeURIComponent('${key}'))"><i class="fa-solid fa-copy"></i></button>`;
         if (permissions.canApprove) actions += `<button class="btn btn-outline-danger py-0 px-2" title="Duyệt BOM" onclick="approveBomItem('${project.id}')"><i class="fa-solid fa-stamp"></i></button>`;
-        return `<tr><td class="sticky-col-1 text-center">${renderRowActionMenu(actions)}</td><td class="sticky-col-2"><span class="badge bg-${statusClass}">${project.trangThai}</span></td><td><span class="badge bg-light text-primary border">${project.soPhieu}</span></td><td><strong class="text-primary">${project.maDuan}</strong></td><td class="text-wrap-cell">${displaySensitiveName(project.tenDuan)}</td><td>${project.dvtDuan}</td><td class="text-end text-primary fw-bold">${formatNum(project.tongGiaDuan, 0)} đ</td><td class="small text-muted text-wrap-cell">${displaySensitiveText(project.ghiChuDuAn)}</td><td><span class="badge bg-light text-dark border">${project.displayTao}</span></td><td>${project.ngayTao}</td><td><span class="badge bg-light text-success border">${project.displayDuyet || '-'}</span></td></tr>`;
+        return `<tr><td class="sticky-col-1 text-center">${renderRowActionMenu(actions)}</td><td class="sticky-col-2"><span class="badge bg-${statusClass}">${project.trangThai}</span></td><td><span class="badge bg-light text-primary border">${renderReferenceLink('bom', project.key, project.soPhieu)}</span></td><td><strong class="text-primary">${renderReferenceLink('material', project.maDuan, project.maDuan)}</strong></td><td class="text-wrap-cell">${renderEllipsisText(project.tenDuan)}</td><td>${project.dvtDuan}</td><td class="text-end text-primary fw-bold">${formatNum(project.tongGiaDuan, 0)} đ</td><td class="small text-muted text-wrap-cell">${renderEllipsisText(project.ghiChuDuAn)}</td><td><span class="badge bg-light text-dark border">${project.displayTao}</span></td><td>${project.ngayTao}</td><td><span class="badge bg-light text-success border">${project.displayDuyet || '-'}</span></td></tr>`;
       }).join('');
       tb.innerHTML = h;
       document.getElementById('bom-page-info').innerText = `Dự án ${start + 1} - ${start + pageData.length} / ${total}`;
@@ -2671,7 +2949,7 @@
         }
         let actions = canEdit ? `<button class="btn btn-sm btn-outline-primary py-0" onclick="editBomItem('${enc}')"><i class="fa-solid fa-pen"></i></button><button class="btn btn-sm btn-outline-danger py-0" onclick="deleteBomItem('${row.id}')"><i class="fa-solid fa-trash"></i></button>` : '';
         if (!isDemoReadOnly() && ['quanlyrd', 'rd', 'quanly', 'bod'].includes(permissions.role)) actions += `<button class="btn btn-sm btn-outline-warning py-0" title="Yêu cầu báo giá" onclick="openRequestPriceFromBom('${enc}')"><i class="fa-solid fa-tag"></i></button>`;
-        return `<tr><td>${renderRowActionMenu(actions)}</td><td>${row.maVatTu}</td><td>${renderMaterialName(row.tenVatTu)}</td><td>${row.dvtVatTu}</td><td class="text-end">${formatNum(row.tyLeSuDung, 4)}%</td><td class="text-end">${row.donGiaNL > 0 ? `${formatNum(row.donGiaNL, 0)} đ` : '-'}</td><td class="text-end">${row.donGiaNL > 0 ? `${formatNum(row.thanhTienNL, 0)} đ` : '-'}</td><td class="small">${displaySensitiveText(row.ghiChu)}</td></tr>`;
+        return `<tr><td>${renderRowActionMenu(actions)}</td><td>${renderReferenceLink('material', row.maVatTu, row.maVatTu)}</td><td>${renderMaterialName(row.tenVatTu)}</td><td>${row.dvtVatTu}</td><td class="text-end">${formatNum(row.tyLeSuDung, 4)}%</td><td class="text-end">${row.donGiaNL > 0 ? `${formatNum(row.donGiaNL, 0)} đ` : '-'}</td><td class="text-end">${row.donGiaNL > 0 ? `${formatNum(row.thanhTienNL, 0)} đ` : '-'}</td><td class="small">${renderEllipsisText(row.ghiChu)}</td></tr>`;
       }).join('') : '';
       const emptyRow = !dataRows && !showAddRow ? '<tr><td colspan="8" class="text-center text-muted">Chưa có dòng định mức.</td></tr>' : '';
       tbody.innerHTML = `${editorRow}${dataRows}${emptyRow}`;
@@ -2981,7 +3259,9 @@
           ghiChuDuAn: first.ghiChuDuAn || '',
           trangThai: project.rows.some(row => isTgApprovedStatus(row.trangThai))
             ? 'Đã duyệt giá'
-            : normalizeTgStatus(project.rows[0].trangThai || 'Chờ trình giá')
+            : project.rows.some(row => isTgSubmittedStatus(row.trangThai))
+              ? 'Đã trình giá'
+              : normalizeTgStatus(project.rows[0].trangThai || 'Chờ trình giá')
         };
       }).sort((a, b) => String(b.ngayCapNhat || b.ngayTao).localeCompare(String(a.ngayCapNhat || a.ngayTao)) || b.key.localeCompare(a.key));
     }
@@ -3029,14 +3309,14 @@
         const unitMoney = value => value == null ? '-' : formatNum(value, 0);
         const unitTotal = getTgUnitCostTotal(unitCosts);
         return `<tr><td class="sticky-col-1 text-center">${renderRowActionMenu(actions)}</td><td class="sticky-col-2"><span class="badge bg-${statusClass}">${project.trangThai}</span></td>
-          <td><span class="badge bg-light text-primary border">${project.soPhieu}</span></td><td class="fw-bold text-primary">${project.maDuan}</td>
-          <td class="text-wrap-cell">${displaySensitiveName(project.tenDuan)}</td><td class="text-wrap-cell">${displaySensitiveText(`${project.tenKhachHang || ''} (${project.maKH || ''})`)}</td>
+          <td><span class="badge bg-light text-primary border">${renderReferenceLink('tinhgia', project.key, project.soPhieu)}</span></td><td class="fw-bold text-primary">${renderReferenceLink('material', project.maDuan, project.maDuan)}</td>
+          <td class="text-wrap-cell">${renderEllipsisText(project.tenDuan)}</td><td class="text-wrap-cell">${renderReferenceLink('customer', project.maKH, `${project.tenKhachHang || ''} (${project.maKH || ''})`)}</td>
           <td>${project.dvtDuan || ''}</td><td class="text-end">${formatNum(project.soLuong, 2)}</td>
           <td class="text-end">${unitMoney(unitCosts && unitCosts.nguyenLieu)}</td><td class="text-end">${unitMoney(unitCosts && unitCosts.baoBi)}</td>
           <td class="text-end">${unitMoney(unitCosts && unitCosts.nhanCong)}</td><td class="text-end">${unitMoney(unitCosts && unitCosts.khauHao)}</td><td class="text-end">${unitMoney(unitCosts && unitCosts.chiPhiKhac)}</td>
           <td class="text-end fw-bold text-danger">${unitMoney(unitTotal)}</td><td class="text-end">${money(project.giaKH)}</td>
           <td class="text-end">${formatNum(project.lnDuKien, 2)}%</td><td class="text-end">${money(project.giaDuyet)}</td>
-          <td class="text-end">${formatNum(project.lnDuyet, 2)}%</td><td class="small text-wrap-cell">${displaySensitiveText(project.ghiChuDuAn)}</td>
+          <td class="text-end">${formatNum(project.lnDuyet, 2)}%</td><td class="small text-wrap-cell">${renderEllipsisText(project.ghiChuDuAn)}</td>
           <td>${project.displayTao || project.nguoiTao || ''}</td><td>${project.ngayCapNhat || project.ngayTao || ''}</td>
           <td>${project.displayDuyet || project.nguoiDuyet || '-'}</td><td>${project.ngayDuyet || '-'}</td></tr>`;
       }).join('');
@@ -3223,7 +3503,7 @@
           const quantity = Number(row.suDung) || 0;
           const waste = Number(row.haoHut) || 0;
           const total = Number(row.donGia || 0) * quantity * (1 + waste / 100);
-          return `<tr class="tg-inline-edit-row"><td><div class="d-flex gap-1"><button class="btn btn-success btn-sm py-0 px-1" type="button" title="Lưu thay đổi" aria-label="Lưu thay đổi" onclick="saveTinhGiaInlineEdit('${encodeURIComponent(String(row.id))}')"><i class="fa-solid fa-check"></i></button><button class="btn btn-outline-secondary btn-sm py-0 px-1" type="button" title="Hủy sửa" aria-label="Hủy sửa" onclick="cancelTinhGiaInlineEdit()"><i class="fa-solid fa-xmark"></i></button></div></td><td>${escapeReportHtml(row.maVatTu)}</td><td>${renderMaterialName(row.tenVatTu)}</td><td>${escapeReportHtml(row.dvtVatTu || '')}</td><td><input class="form-control text-end" data-tg-inline-quantity type="number" min="0" step="any" value="${quantity}" oninput="previewTgInlineTotal(this)"></td><td><input class="form-control text-end" data-tg-inline-waste type="number" min="0" step="any" value="${waste}" oninput="previewTgInlineTotal(this)"></td><td class="text-end">${formatNum(row.donGia, 0)} đ</td><td class="text-end fw-bold" data-tg-inline-total>${formatNum(total, 0)} đ</td><td><input class="form-control" data-tg-inline-note value="${note}"></td><td>${escapeReportHtml(row.nhom || '')}</td><td class="tg-quote-expiry">${escapeReportHtml(expiryDate)}</td><td class="tg-quote-note small">${displaySensitiveText(row.ghiChuBaoGiaNVL || '-')}</td><td>${isBtp ? `<input class="form-control" data-tg-inline-bom-version list="tg-bom-version-list" value="${bomVersion}" placeholder="Số phiếu BOM">` : escapeReportHtml(row.phienBanBOM || '')}</td><td class="tg-quote-id" title="${escapeReportHtml(quoteId)}">${escapeReportHtml(quoteId)}</td></tr>`;
+          return `<tr class="tg-inline-edit-row"><td><div class="d-flex gap-1"><button class="btn btn-success btn-sm py-0 px-1" type="button" title="Lưu thay đổi" aria-label="Lưu thay đổi" onclick="saveTinhGiaInlineEdit('${encodeURIComponent(String(row.id))}')"><i class="fa-solid fa-check"></i></button><button class="btn btn-outline-secondary btn-sm py-0 px-1" type="button" title="Hủy sửa" aria-label="Hủy sửa" onclick="cancelTinhGiaInlineEdit()"><i class="fa-solid fa-xmark"></i></button></div></td><td>${renderReferenceLink('material', row.maVatTu, row.maVatTu)}</td><td>${renderMaterialName(row.tenVatTu)}</td><td>${escapeReportHtml(row.dvtVatTu || '')}</td><td><input class="form-control text-end" data-tg-inline-quantity type="number" min="0" step="any" value="${quantity}" oninput="previewTgInlineTotal(this)"></td><td><input class="form-control text-end" data-tg-inline-waste type="number" min="0" step="any" value="${waste}" oninput="previewTgInlineTotal(this)"></td><td class="text-end">${formatNum(row.donGia, 0)} đ</td><td class="text-end fw-bold" data-tg-inline-total>${formatNum(total, 0)} đ</td><td><input class="form-control" data-tg-inline-note value="${note}"></td><td>${escapeReportHtml(row.nhom || '')}</td><td class="tg-quote-expiry">${escapeReportHtml(expiryDate)}</td><td class="tg-quote-note small">${renderEllipsisText(row.ghiChuBaoGiaNVL || '-')}</td><td>${isBtp ? `<input class="form-control" data-tg-inline-bom-version list="tg-bom-version-list" value="${bomVersion}" placeholder="Số phiếu BOM">` : escapeReportHtml(row.phienBanBOM || '')}</td><td class="tg-quote-id" title="${escapeReportHtml(quoteId)}">${escapeReportHtml(quoteId)}</td></tr>`;
         }
         let actions = canEdit ? `<button class="btn btn-sm btn-outline-primary py-0" title="Sửa dòng" onclick="editTinhGiaLine('${enc}')"><i class="fa-solid fa-pen"></i></button><button class="btn btn-sm btn-outline-danger py-0" title="Xóa dòng" onclick="deleteTinhGiaLine('${row.id}')"><i class="fa-solid fa-trash"></i></button>` : '';
         if (!isDemoReadOnly() && ['quanlyrd', 'rd', 'quanly', 'bod'].includes(String(currentUser && currentUser.chucVu || '').trim().toLowerCase())) {
@@ -3231,12 +3511,12 @@
         }
         const quoteId = row.idYeuCauGia || (String(row.nhom || '').toLowerCase().includes('btp') ? 'Theo phiên bản BOM' : 'Chưa có báo giá');
         const expiryDate = row.ngayHetHanGiaNVL || row.ngayHieuLucGiaNVL || '-';
-        return `<tr><td>${renderRowActionMenu(actions)}</td><td>${row.maVatTu}</td><td>${renderMaterialName(row.tenVatTu)}</td><td>${row.dvtVatTu || ''}</td>
+        return `<tr><td>${renderRowActionMenu(actions)}</td><td>${renderReferenceLink('material', row.maVatTu, row.maVatTu)}</td><td>${renderMaterialName(row.tenVatTu)}</td><td>${row.dvtVatTu || ''}</td>
           <td class="text-end">${formatNum(row.suDung, 4)}</td><td class="text-end">${formatNum(row.haoHut, 2)}%</td>
           <td class="text-end">${formatNum(row.donGia, 0)} đ</td><td class="text-end fw-bold">${formatNum(row.thanhTien, 0)} đ</td>
-          <td class="small">${displaySensitiveText(row.ghiChu)}</td><td>${row.nhom || ''}</td><td class="tg-quote-expiry">${expiryDate}</td>
-          <td class="tg-quote-note small">${displaySensitiveText(row.ghiChuBaoGiaNVL || '-')}</td>
-          <td>${row.phienBanBOM || ''}</td><td class="tg-quote-id" title="${quoteId}">${quoteId}</td></tr>`;
+          <td class="small">${renderEllipsisText(row.ghiChu)}</td><td>${row.nhom || ''}</td><td class="tg-quote-expiry">${expiryDate}</td>
+          <td class="tg-quote-note small">${renderEllipsisText(row.ghiChuBaoGiaNVL || '-')}</td>
+          <td>${row.phienBanBOM ? renderReferenceLink('bom', row.phienBanBOM, row.phienBanBOM) : ''}</td><td class="tg-quote-id">${row.idYeuCauGia ? renderReferenceLink('price', row.idYeuCauGia, quoteId) : escapeReportHtml(quoteId)}</td></tr>`;
       }).join('');
       const emptyRow = !dataRows && !addRow ? '<tr><td colspan="14" class="text-center text-muted">Chưa có dòng chi phí.</td></tr>' : '';
       tbody.innerHTML = `${addRow}${dataRows}${emptyRow}`;

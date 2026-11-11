@@ -37,6 +37,7 @@ const JSON_DATA_TEXT_HEADERS = [
 ];
 const JSON_DATA_MIGRATION_PROPERTY = 'JSON_DATA_MIGRATION_V1';
 const JSON_DATA_FOLDER_ID_PROPERTY = 'JSON_DATA_FOLDER_ID';
+const JSON_DATA_SYNC_VERSION_PROPERTY = 'JSON_DATA_SYNC_VERSION';
 var ACTIVE_JSON_WORKBOOK = null;
 var ACTIVE_JSON_WORKBOOK_LOCK = null;
 
@@ -229,6 +230,12 @@ JsonDataRange.prototype.setValue = function (value) {
   return this;
 };
 
+JsonDataRange.prototype.clearContent = function () {
+  const emptyValues = Array.from({ length: this.numRows }, () => Array(this.numColumns).fill(''));
+  this.sheet.setValues(this.row, this.column, emptyValues);
+  return this;
+};
+
 JsonDataRange.prototype.setNumberFormat = function () { return this; };
 JsonDataRange.prototype.setFontWeight = function () { return this; };
 JsonDataRange.prototype.setBackground = function () { return this; };
@@ -299,6 +306,7 @@ function JsonDataWorkbook(folder) {
   this.folder = folder;
   this.catalog = { version: JSON_DATA_VERSION, sheets: {} };
   this.months = {};
+  this.monthFiles = {};
   this.dirtyCatalog = false;
   this.dirtyMonths = {};
   this.sheetSnapshots = {};
@@ -316,16 +324,24 @@ function JsonDataWorkbook(folder) {
     const file = files.next();
     const match = file.getName().match(/^(\d{4}-\d{2})\.json$/);
     if (!match) continue;
-    const monthData = getJsonFileContent(file);
-    if (!monthData || monthData.version !== JSON_DATA_VERSION || !monthData.sheets) {
-      throw new Error('Cấu trúc file DATA/' + file.getName() + ' không hợp lệ.');
-    }
-    this.months[match[1]] = monthData;
+    this.monthFiles[match[1]] = file;
   }
 }
 
 JsonDataWorkbook.prototype.isStaticSheet = function (name) {
   return JSON_DATA_STATIC_SHEETS.indexOf(name) !== -1;
+};
+
+JsonDataWorkbook.prototype.loadMonth = function (monthName) {
+  if (this.months[monthName]) return this.months[monthName];
+  const file = this.monthFiles[monthName];
+  if (!file) return null;
+  const monthData = getJsonFileContent(file);
+  if (!monthData || monthData.version !== JSON_DATA_VERSION || !monthData.sheets) {
+    throw new Error('Cấu trúc file DATA/' + file.getName() + ' không hợp lệ.');
+  }
+  this.months[monthName] = monthData;
+  return monthData;
 };
 
 JsonDataWorkbook.prototype.getSheetSnapshot = function (name) {
@@ -343,8 +359,13 @@ JsonDataWorkbook.prototype.getSheetSnapshot = function (name) {
   const headers = [];
   const rows = [];
   const refs = [];
-  Object.keys(this.months).sort().forEach(monthName => {
-    const table = this.months[monthName].sheets[name];
+  const monthNames = Object.keys(this.monthFiles);
+  Object.keys(this.months).forEach(monthName => {
+    if (monthNames.indexOf(monthName) === -1) monthNames.push(monthName);
+  });
+  monthNames.sort().forEach(monthName => {
+    const monthData = this.months[monthName] || this.loadMonth(monthName);
+    const table = monthData && monthData.sheets[name];
     if (!table) return;
     if (!headers.length) Array.prototype.push.apply(headers, table.headers || []);
     (table.rows || []).forEach((row, index) => {
@@ -381,8 +402,11 @@ JsonDataWorkbook.prototype.insertSheet = function (name) {
 JsonDataWorkbook.prototype.getOrCreateMonthTable = function (monthName, sheetName) {
   let created = false;
   if (!this.months[monthName]) {
-    this.months[monthName] = { version: JSON_DATA_VERSION, month: monthName, sheets: {} };
-    created = true;
+    const existingMonth = this.loadMonth(monthName);
+    if (!existingMonth) {
+      this.months[monthName] = { version: JSON_DATA_VERSION, month: monthName, sheets: {} };
+      created = true;
+    }
   }
   if (!this.months[monthName].sheets[sheetName]) {
     this.months[monthName].sheets[sheetName] = { headers: [], rows: [] };
@@ -403,6 +427,7 @@ JsonDataWorkbook.prototype.setSheetCell = function (name, rowNumber, columnNumbe
     return;
   }
 
+  const snapshot = this.getSheetSnapshot(name);
   if (rowNumber === 1) {
     Object.keys(this.months).forEach(monthName => {
       const table = this.months[monthName].sheets[name];
@@ -420,7 +445,6 @@ JsonDataWorkbook.prototype.setSheetCell = function (name, rowNumber, columnNumbe
     return;
   }
 
-  const snapshot = this.getSheetSnapshot(name);
   let ref = snapshot.refs[rowNumber - 2];
   if (!ref) {
     const monthName = Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM');
@@ -552,6 +576,18 @@ function acquireJsonDataLock() {
   ACTIVE_JSON_WORKBOOK_LOCK = lock;
 }
 
+function getDataSyncVersion() {
+  return PropertiesService.getScriptProperties().getProperty(JSON_DATA_SYNC_VERSION_PROPERTY) || '0';
+}
+
+function incrementDataSyncVersion() {
+  const currentVersion = Number(getDataSyncVersion());
+  const nextVersion = (Number.isSafeInteger(currentVersion) && currentVersion >= 0 ? currentVersion : 0) + 1;
+  const version = String(nextVersion);
+  PropertiesService.getScriptProperties().setProperty(JSON_DATA_SYNC_VERSION_PROPERTY, version);
+  return version;
+}
+
 function doPost(e) {
   let out;
   ACTIVE_JSON_WORKBOOK = null;
@@ -562,10 +598,14 @@ function doPost(e) {
     if (!/^[A-Za-z_]\w*$/.test(fn) || API_BLOCKED_FUNCTIONS.indexOf(fn) !== -1 || typeof this[fn] !== 'function') {
       throw new Error('Function not allowed: ' + fn);
     }
-    if (API_JSON_WRITE_FUNCTIONS.indexOf(fn) !== -1) acquireJsonDataLock();
+    const isWriteFunction = API_JSON_WRITE_FUNCTIONS.indexOf(fn) !== -1;
+    if (isWriteFunction) acquireJsonDataLock();
     const data = this[fn].apply(null, req.args || []);
     if (ACTIVE_JSON_WORKBOOK) ACTIVE_JSON_WORKBOOK.save();
     out = { data: data === undefined ? null : data };
+    if (isWriteFunction && !(data && data.success === false)) {
+      out.syncVersion = incrementDataSyncVersion();
+    }
   } catch (err) {
     out = { __error: String(err && err.message ? err.message : err) };
     if (ACTIVE_JSON_WORKBOOK) {
@@ -1080,6 +1120,19 @@ function getReportPriceData(loggedUser) {
     received: counts.received,
     items: items,
     pendingItems: items.filter(item => item.trangThai.toLowerCase().includes("chờ báo giá") || (item.trangThai.toLowerCase().includes("tiếp nhận") && !item.trangThai.toLowerCase().includes("đã nhận")))
+  };
+}
+
+function getReportDashboardData(loggedUser) {
+  const role = String(loggedUser && loggedUser.chucVu || '').trim().toLowerCase();
+  const canViewTinhGia = ['quanly', 'bod'].indexOf(role) !== -1 || isDemoReadOnlyUser(loggedUser);
+  return {
+    priceSummary: getReportPriceData(loggedUser),
+    bomData: getAllBomData(loggedUser),
+    dmvtData: getAllDmvtData(),
+    khData: getAllKhachHangData(),
+    tinhGiaData: canViewTinhGia ? getAllTinhGiaData(loggedUser) : [],
+    users: getUserList()
   };
 }
 
@@ -2017,7 +2070,7 @@ function setTinhGiaProjectStatus(soPhieu, nextStatus, loggedUser, approvedPrice)
     if (isTinhGiaApprovedStatus(currentStatus)) return { success: false, message: "Phiếu đã duyệt, không thể đổi trạng thái." };
     if (!["Đã trình giá", "Chờ trình giá", "Đã duyệt giá"].includes(nextStatus)) return { success: false, message: "Trạng thái phiếu không hợp lệ." };
     if (nextStatus === "Đã trình giá" && !["Chờ trình giá", "Chờ cung cấp giá NVL", "Hủy trình giá", "Chưa duyệt"].includes(currentStatus)) return { success: false, message: "Phiếu không ở trạng thái có thể trình giá." };
-    if (nextStatus === "Chờ trình giá" && !isTinhGiaSubmittedStatus(currentStatus)) return { success: false, message: "Chỉ có thể hủy trình giá khi phiếu đã trình giá." };
+    if (nextStatus === "Chờ trình giá" && !matches.some(item => isTinhGiaSubmittedStatus(item.row[15]))) return { success: false, message: "Chỉ có thể hủy trình giá khi phiếu đã trình giá." };
     if (nextStatus === "Chờ trình giá") {
       const requester = String(loggedUser && loggedUser.maNV || "").replace(/^'/, "").trim().toLowerCase();
       const creators = matches.map(item => String(item.row[11] || "").replace(/^'/, "").trim().toLowerCase());
