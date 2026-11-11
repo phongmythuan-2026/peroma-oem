@@ -1711,7 +1711,7 @@
         reportPendingItems.push({ kind: 'bom', module: 'Định mức BOM', key: project.key, approvalId: project.rows[0] && project.rows[0].id || project.id, reference: project.soPhieu || project.key, code: project.maDuan || '', name: project.tenDuan || '', status: project.trangThai, owner: project.displayTao || project.nguoiTao || '', date: project.ngayTao || '' });
       });
       costingProjects.forEach(project => {
-        if (!isTgSubmittedStatus(project.trangThai) && !['Chờ trình giá', 'Chờ cung cấp giá NVL'].includes(project.trangThai)) return;
+        if (!isTgSubmittedStatus(project.trangThai) && !['Chờ trình giá', 'Chờ cung cấp giá NVL', 'Hủy trình giá'].includes(project.trangThai)) return;
         reportPendingItems.push({ kind: 'tinhgia', module: 'Tính giá OEM', key: project.key, reference: project.soPhieu || project.key, code: project.maDuan || '', name: project.tenDuan || '', status: project.trangThai, owner: project.displayTao || project.nguoiTao || '', date: project.ngayCapNhat || project.ngayTao || '' });
       });
       const queueRole = String(currentUser && currentUser.chucVu || '').trim().toLowerCase();
@@ -1720,7 +1720,7 @@
       const getQueueActionPriority = item => {
         if (item.kind === 'price' && item.status === 'Chờ tiếp nhận' && (queueRole === 'quanly' || String(item.requester || '').toLowerCase() === queueEmployee)) return 0;
         if (item.kind === 'bom' && item.status === 'Chờ duyệt' && queueRole === 'quanlyrd') return 1;
-        if (item.kind === 'tinhgia' && ['Chờ trình giá', 'Chờ cung cấp giá NVL'].includes(item.status) && ['quanly', 'bod'].includes(queueRole)) return 2;
+        if (item.kind === 'tinhgia' && ['Chờ trình giá', 'Chờ cung cấp giá NVL', 'Hủy trình giá'].includes(item.status) && ['quanly', 'bod'].includes(queueRole)) return 2;
         if (item.kind === 'tinhgia' && isTgSubmittedStatus(item.status)) {
           const project = costingProjectByKey.get(item.key);
           if (['quanly', 'bod'].includes(queueRole) && isTgProjectCreator(project)) return 3;
@@ -1806,7 +1806,7 @@
         if (!isDemoReadOnly() && item.kind === 'bom' && item.status === 'Chờ duyệt' && role === 'quanlyrd') buttons.push(`<button type="button" class="btn btn-success btn-sm report-queue-action" title="Duyệt BOM" aria-label="Duyệt BOM" data-report-action="approve-bom" data-report-key="${escapeReportHtml(item.key)}"><i class="fa-solid fa-stamp"></i></button>`);
         if (!isDemoReadOnly() && item.kind === 'tinhgia' && isTgSubmittedStatus(item.status) && ['quanly', 'bod'].includes(role) && isTgProjectCreator(getTgProjects(fullTgData).find(project => project.key === item.key))) buttons.push(`<button type="button" class="btn btn-outline-secondary btn-sm report-queue-action" title="Hủy trình giá" aria-label="Hủy trình giá" data-report-action="cancel-tg" data-report-key="${escapeReportHtml(item.key)}"><i class="fa-solid fa-arrow-rotate-left"></i></button>`);
         if (!isDemoReadOnly() && item.kind === 'tinhgia' && isTgSubmittedStatus(item.status) && role === 'bod') buttons.push(`<button type="button" class="btn btn-success btn-sm report-queue-action" title="Duyệt giá" aria-label="Duyệt giá" data-report-action="approve-tg" data-report-key="${escapeReportHtml(item.key)}"><i class="fa-solid fa-stamp"></i></button>`);
-        if (!isDemoReadOnly() && item.kind === 'tinhgia' && ['Chờ trình giá', 'Chờ cung cấp giá NVL'].includes(item.status) && ['quanly', 'bod'].includes(role)) buttons.push(`<button type="button" class="btn btn-outline-primary btn-sm report-queue-action" title="Trình giá" aria-label="Trình giá" data-report-action="submit-tg" data-report-key="${escapeReportHtml(item.key)}"><i class="fa-solid fa-paper-plane"></i></button>`);
+        if (!isDemoReadOnly() && item.kind === 'tinhgia' && ['Chờ trình giá', 'Chờ cung cấp giá NVL', 'Hủy trình giá'].includes(item.status) && ['quanly', 'bod'].includes(role)) buttons.push(`<button type="button" class="btn btn-outline-primary btn-sm report-queue-action" title="Trình giá" aria-label="Trình giá" data-report-action="submit-tg" data-report-key="${escapeReportHtml(item.key)}"><i class="fa-solid fa-paper-plane"></i></button>`);
         const referenceType = item.kind === 'price' ? 'price' : item.kind === 'bom' ? 'bom' : 'tinhgia';
         const subjectHtml = item.code
           ? `${renderReferenceLink('material', item.code, item.code)}${maskedName ? ` - ${escapeReportHtml(maskedName)}` : ''}`
