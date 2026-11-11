@@ -122,7 +122,7 @@ function migrateSpreadsheetDataToJson(folder) {
     const files = folder.getFilesByName(fileName);
     const content = JSON.stringify(months[monthName]);
     if (files.hasNext()) files.next().setContent(content);
-    else folder.createFile(fileName, content, MimeType.JSON);
+    else folder.createFile(fileName, content, MimeType.PLAIN_TEXT);
   });
   saveJsonDataFile(folder, JSON_DATA_CATALOG_FILE, catalog);
   PropertiesService.getScriptProperties().setProperty(JSON_DATA_MIGRATION_PROPERTY, 'complete');
@@ -132,7 +132,7 @@ function saveJsonDataFile(folder, fileName, data) {
   const files = folder.getFilesByName(fileName);
   const content = JSON.stringify(data);
   if (files.hasNext()) files.next().setContent(content);
-  else folder.createFile(fileName, content, MimeType.JSON);
+  else folder.createFile(fileName, content, MimeType.PLAIN_TEXT);
 }
 
 function JsonDataRange(sheet, row, column, numRows, numColumns) {
@@ -496,7 +496,7 @@ function getDataWorkbook() {
     if (migrationDone && !catalogFiles.hasNext() && !hasMonthlyJson) {
       throw new Error('Không tìm thấy dữ liệu JSON trong thư mục DATA.');
     }
-    if (!migrationDone && !catalogFiles.hasNext() && !hasMonthlyJson) migrateSpreadsheetDataToJson(folder);
+    if (!migrationDone) migrateSpreadsheetDataToJson(folder);
     ACTIVE_JSON_WORKBOOK = new JsonDataWorkbook(folder);
     return ACTIVE_JSON_WORKBOOK;
   } catch (error) {
