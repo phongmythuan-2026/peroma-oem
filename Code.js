@@ -61,7 +61,7 @@ function getJsonFileContent(file) {
   const cached = cache.get(cacheKey);
   let content;
   if (cached) {
-    content = Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(cached))).getDataAsString('UTF-8');
+    content = Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(cached), 'application/gzip')).getDataAsString('UTF-8');
   } else {
     content = file.getBlob().getDataAsString('UTF-8');
     cacheJsonFileContent(cache, cacheKey, content);
