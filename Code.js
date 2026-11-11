@@ -13,6 +13,17 @@ const API_BLOCKED_FUNCTIONS = [
   'migrateSpreadsheetDataToJson', 'saveJsonDataFile', 'getDataWorkbook',
   'JsonDataRange', 'JsonDataSheet', 'JsonDataWorkbook'
 ];
+const API_JSON_WRITE_FUNCTIONS = [
+  'checkLogin', 'changePassword', 'writeSystemLog',
+  'saveKhachHangItem', 'importKhachHangFromExcelData', 'deleteKhachHangItem',
+  'saveDmvtItem', 'importDmvtFromExcelData', 'deleteDmvtItem',
+  'saveVatTu', 'importPriceRequestsFromExcelData', 'confirmVatTu', 'deleteVatTu',
+  'generateBomVoucher', 'saveBom', 'saveBomMaster', 'approveBom', 'deleteBom',
+  'deleteBomProject', 'cloneEntireProjectBom', 'importBomFromExcelData',
+  'generateTinhGiaVoucher', 'saveTinhGiaItem', 'saveTinhGiaMaster',
+  'setTinhGiaProjectStatus', 'deleteTinhGiaItem', 'deleteTinhGiaProject',
+  'approveTinhGiaProject', 'cloneTinhGiaProject', 'importTinhGiaFromExcelData'
+];
 
 const JSON_DATA_FOLDER_NAME = 'DATA';
 const JSON_DATA_VERSION = 1;
@@ -481,20 +492,26 @@ JsonDataWorkbook.prototype.save = function () {
 
 function getDataWorkbook() {
   if (ACTIVE_JSON_WORKBOOK) return ACTIVE_JSON_WORKBOOK;
-  const lock = LockService.getScriptLock();
-  lock.waitLock(30000);
-  ACTIVE_JSON_WORKBOOK_LOCK = lock;
   try {
     const folder = getJsonDataFolder();
-    const migrationDone = PropertiesService.getScriptProperties().getProperty(JSON_DATA_MIGRATION_PROPERTY) === 'complete';
-    if (!migrationDone) migrateSpreadsheetDataToJson(folder);
+    if (PropertiesService.getScriptProperties().getProperty(JSON_DATA_MIGRATION_PROPERTY) !== 'complete') {
+      acquireJsonDataLock();
+      if (PropertiesService.getScriptProperties().getProperty(JSON_DATA_MIGRATION_PROPERTY) !== 'complete') {
+        migrateSpreadsheetDataToJson(folder);
+      }
+    }
     ACTIVE_JSON_WORKBOOK = new JsonDataWorkbook(folder);
     return ACTIVE_JSON_WORKBOOK;
   } catch (error) {
-    ACTIVE_JSON_WORKBOOK_LOCK.releaseLock();
-    ACTIVE_JSON_WORKBOOK_LOCK = null;
     throw error;
   }
+}
+
+function acquireJsonDataLock() {
+  if (ACTIVE_JSON_WORKBOOK_LOCK) return;
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  ACTIVE_JSON_WORKBOOK_LOCK = lock;
 }
 
 function doPost(e) {
@@ -507,6 +524,7 @@ function doPost(e) {
     if (!/^[A-Za-z_]\w*$/.test(fn) || API_BLOCKED_FUNCTIONS.indexOf(fn) !== -1 || typeof this[fn] !== 'function') {
       throw new Error('Function not allowed: ' + fn);
     }
+    if (API_JSON_WRITE_FUNCTIONS.indexOf(fn) !== -1) acquireJsonDataLock();
     const data = this[fn].apply(null, req.args || []);
     if (ACTIVE_JSON_WORKBOOK) ACTIVE_JSON_WORKBOOK.save();
     out = { data: data === undefined ? null : data };
