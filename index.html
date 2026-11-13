@@ -390,6 +390,7 @@
           <li class="nav-item d-none" id="tab-nav-tinhgia"><a class="nav-link text-warning text-dark" onclick="switchTab('tinhgia')" id="btn-tab-tinhgia"><i class="fa-solid fa-calculator me-1"></i> Tính Giá OEM</a></li>
           <li class="nav-item d-none" id="tab-nav-kh"><a class="nav-link text-info text-dark" onclick="switchTab('kh')" id="btn-tab-kh"><i class="fa-solid fa-address-book me-1"></i> Khách hàng</a></li>
           <li class="nav-item" id="tab-nav-dmvt"><a class="nav-link text-secondary" onclick="switchTab('dmvt')" id="btn-tab-dmvt"><i class="fa-solid fa-boxes-stacked me-1"></i> DMVT</a></li>
+          <li class="nav-item d-none" id="tab-nav-admin"><a class="nav-link text-dark" onclick="switchTab('admin')" id="btn-tab-admin"><i class="fa-solid fa-users-gear me-1"></i> Quản trị</a></li>
         </ul>
         <div id="global-toolbar" class="d-flex align-items-center gap-2 pe-2" style="flex-shrink: 0;">
           <input type="text" id="global-search-input" class="form-control form-control-sm w-auto" placeholder="Tìm kiếm..." onkeyup="handleGlobalSearch()">
@@ -676,6 +677,20 @@
         </div>
       </div>
 
+      <div id="section-admin" class="d-none tab-pane-container">
+        <div class="d-flex align-items-center justify-content-between border-bottom py-2 mb-2">
+          <span class="small fw-semibold text-dark"><i class="fa-solid fa-users-gear me-1"></i>Quản lý người dùng</span>
+          <button class="btn btn-dark btn-sm px-3" type="button" onclick="openUserForm()"><i class="fa-solid fa-user-plus me-1"></i>Thêm người dùng</button>
+        </div>
+        <div class="table-scroll-container">
+          <table class="table table-hover align-middle mb-0">
+            <thead><tr><th class="sticky-col-1 text-center" style="min-width: 90px;">Thao tác</th><th class="sticky-col-2">Mã nhân viên</th><th>Họ tên</th><th>Chức vụ</th><th>Bộ phận</th></tr></thead>
+            <tbody id="admin-user-table-body"><tr><td colspan="5" class="text-center text-muted">Đang tải...</td></tr></tbody>
+          </table>
+        </div>
+        <div class="table-footer-bar"><small class="text-muted" id="admin-user-count"></small></div>
+      </div>
+
     </div>
   </div>
 
@@ -758,6 +773,7 @@
   <div class="modal fade" id="modalDmvtForm" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content shadow"><div class="modal-header bg-primary text-white py-2"><h6 class="modal-title fw-bold">Danh mục vật tư</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body" id="dmvt-form-modal-host"></div></div></div></div>
   <div class="modal fade" id="modalCatalogReference" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content shadow"><div class="modal-header bg-primary text-white py-2"><h6 class="modal-title fw-bold" id="catalog-reference-title">Chi tiết danh mục</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body" id="catalog-reference-body"></div><div class="modal-footer py-2"><div class="d-flex gap-2 me-auto" id="catalog-reference-actions"></div><button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button></div></div></div></div>
   <div class="modal fade" id="modalKhForm" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content shadow"><div class="modal-header bg-info py-2"><h6 class="modal-title fw-bold">Danh mục khách hàng</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body" id="kh-form-modal-host"></div></div></div></div>
+  <div class="modal fade" id="modalUserForm" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content shadow"><div class="modal-header bg-dark text-white py-2"><h6 class="modal-title fw-bold" id="user-form-title"><i class="fa-solid fa-user-gear me-1"></i>Thêm người dùng</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="user-form-is-update" value="false"><div class="mb-2"><label class="form-label fw-semibold" for="user-form-code">Mã nhân viên *</label><input id="user-form-code" class="form-control text-uppercase" autocomplete="off"></div><div class="mb-2"><label class="form-label fw-semibold" for="user-form-name">Họ tên *</label><input id="user-form-name" class="form-control" autocomplete="name"></div><div class="row g-2"><div class="col-md-6 mb-2"><label class="form-label fw-semibold" for="user-form-role">Chức vụ *</label><select id="user-form-role" class="form-select"><option value="rd">RD</option><option value="quanlyrd">Quản lý RD</option><option value="quanly">Quản lý</option><option value="bod">BOD</option></select></div><div class="col-md-6 mb-2"><label class="form-label fw-semibold" for="user-form-department">Bộ phận</label><input id="user-form-department" class="form-control" autocomplete="organization"></div></div><div class="mb-2"><label class="form-label fw-semibold" for="user-form-password" id="user-form-password-label">Mật khẩu *</label><input id="user-form-password" type="password" class="form-control" autocomplete="new-password"><div class="form-text" id="user-form-password-help">Mật khẩu tối thiểu 6 ký tự.</div></div></div><div class="modal-footer py-2"><button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button><button type="button" class="btn btn-dark btn-sm px-3" id="user-form-save" onclick="saveAdminUser()"><i class="fa-solid fa-floppy-disk me-1"></i>Lưu</button></div></div></div></div>
   <div class="modal fade" id="modalImportBom" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content shadow"><div class="modal-header bg-success text-white py-2"><h6 class="modal-title fw-bold"><i class="fa-solid fa-file-import me-2"></i> Import BOM OEM</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="d-flex justify-content-between mb-3 bg-light p-2 border"><span>File mẫu chuẩn Excel</span><button class="btn btn-outline-success btn-sm" onclick="downloadBomTemplateExcel()"><i class="fa-solid fa-download"></i> Tải</button></div><div class="mb-3"><input type="file" id="bom-excel-file-input" class="form-control" accept=".xlsx, .xls"></div></div><div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button><button class="btn btn-success btn-sm" id="btn-submit-import-bom" onclick="processImportBomExcel()">Import</button></div></div></div></div>
   <div class="modal fade" id="modalPriceForm" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-xl modal-dialog-centered"><div class="modal-content shadow"><div class="modal-header bg-light py-2"><h6 class="modal-title fw-bold text-primary" id="modal-price-title"><i class="fa-solid fa-tags me-1"></i> Tạo yêu cầu báo giá</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="modal-price-mode"><input type="hidden" id="modal-price-editRowId"><div class="row g-3"><div class="col-md-3"><label class="form-label fw-semibold">Mã vật tư *</label><input type="text" id="modal-price-maVatTu" class="form-control" list="dmvt-shared-datalist" onchange="onPriceMaVatTuSelected('modal-price-maVatTu')"></div><div class="col-md-4"><label class="form-label fw-semibold">Tên vật tư</label><input type="text" id="modal-price-tenVatTu" class="form-control bg-light" readonly></div><div class="col-md-2"><label class="form-label fw-semibold">Đvt</label><input type="text" id="modal-price-donVi" class="form-control bg-light" readonly></div><div class="col-md-3"><label class="form-label fw-semibold">VAT</label><input type="text" id="modal-price-vat" class="form-control"></div><div class="col-md-3"><label class="form-label fw-semibold text-success">Đơn giá</label><input type="number" id="modal-price-donGia" class="form-control border-success" oninput="checkModalPriceExpiryRequirement()"></div><div class="col-md-3"><label class="form-label fw-semibold" id="modal-label-price-ngayHetHan">Ngày hết hiệu lực</label><input type="date" id="modal-price-ngayHetHan" class="form-control"></div><div class="col-md-3"><label class="form-label fw-semibold text-primary">Người thực hiện *</label><input type="text" id="modal-price-maNVTH" class="form-control" list="user-shared-datalist"></div><div class="col-md-4"><label class="form-label fw-semibold">Tài liệu đính kèm</label><div class="input-group"><input type="text" id="modal-price-taiLieu-link" class="form-control" readonly placeholder="Chưa có file..."><a id="modal-price-attachment-open" class="btn btn-outline-secondary d-none" target="_blank" rel="noopener noreferrer" title="Mở tài liệu"><i class="fa-solid fa-arrow-up-right-from-square"></i></a><input type="file" id="modal-price-file-upload" class="d-none" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.zip" onchange="uploadModalPriceAttachment()"><button class="btn btn-outline-success" id="modal-price-upload-button" type="button" onclick="document.getElementById('modal-price-file-upload').click()"><i class="fa-solid fa-paperclip me-1"></i> Chọn & tải lên</button></div></div><div class="col-12"><label class="form-label fw-semibold">Ghi chú</label><textarea id="modal-price-ghiChu" class="form-control" rows="3"></textarea></div></div></div><div class="modal-footer"><button type="button" class="btn btn-outline-info btn-sm d-none" id="modal-price-btn-clone" onclick="clonePriceItemFromModal()">Nhân bản</button><button type="button" class="btn btn-outline-primary btn-sm d-none" id="modal-price-btn-edit" onclick="editPriceItemFromModal()">Sửa</button><button type="button" class="btn btn-outline-danger btn-sm d-none" id="modal-price-btn-delete" onclick="deletePriceItemFromModal()">Xóa</button><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button><button class="btn btn-success btn-sm" id="modal-price-btn-save" onclick="submitPriceModal()">Lưu</button></div></div></div></div>
   <div class="modal fade" id="modalRequestPriceFromBom" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content shadow"><div class="modal-header bg-light py-2"><h6 class="modal-title fw-bold text-primary"><i class="fa-solid fa-tags text-warning"></i> Yêu cầu báo giá</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="row g-2"><div class="col-3"><label>Mã VT *</label><input type="text" id="m-price-maVatTu" class="form-control bg-light" readonly></div><div class="col-5"><label>Tên VT *</label><input type="text" id="m-price-tenVatTu" class="form-control"></div><div class="col-2"><label>Đvt</label><input type="text" id="m-price-donVi" class="form-control"></div><div class="col-2"><label>VAT</label><input type="text" id="m-price-vat" class="form-control"></div><div class="col-4"><label class="text-success">Đơn giá</label><input type="number" id="m-price-donGia" class="form-control border-success" oninput="checkModalPriceExpiryRequirement()"></div><div class="col-4"><label id="m-label-price-ngayHetHan">Ngày HH</label><input type="date" id="m-price-ngayHetHan" class="form-control"></div><div class="col-4"><label class="text-primary">Người TH *</label><input type="text" id="m-price-maNVTH" class="form-control" list="user-shared-datalist"></div><div class="col-12"><label>Ghi chú</label><textarea id="m-price-ghiChu" class="form-control" rows="2"></textarea></div></div></div><div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button><button class="btn btn-success btn-sm" id="m-btn-save-price" onclick="submitPriceRequestFromBom()">Lưu & Gửi</button></div></div></div></div>
@@ -786,6 +802,7 @@
     let fullTgData = [], filteredTgData = [];
     let fullDmvtData = [], filteredDmvtData = [];
     let fullKhData = [], filteredKhData = [];
+    let fullAdminUserData = [], filteredAdminUserData = [];
     let activeBomProject = null, activeTgProject = null;
     let bomAddingLine = false;
     let bomVoucherRequestPending = false;
@@ -1355,6 +1372,7 @@
       const role = String(user.chucVu).toLowerCase().trim(); const bp = String(user.bp).toUpperCase().trim();
       
       const isQuanLy = (role === 'quanly'); const isBOD = (role === 'bod'); const isRD = (role === 'rd'); const isQuanLyRD = (role === 'quanlyrd');
+      document.getElementById('tab-nav-admin').classList.toggle('d-none', !isQuanLy);
       
       document.getElementById('user-info').innerHTML = `Đang đăng nhập: <strong class="text-primary">${user.hoTen} (${user.maNV})</strong>`;
 
@@ -1384,6 +1402,7 @@
     }
 
     function switchTab(tab) {
+      if (tab === 'admin' && !canManageUserAdmin()) return showAlert('Bạn không có quyền truy cập chức năng quản trị người dùng.', true);
       activeTabId = tab;
       const reloadButton = document.getElementById('btn-global-reload');
       const reloadLabel = document.getElementById('global-reload-label');
@@ -1391,8 +1410,8 @@
         reloadLabel.textContent = tab === 'report' ? 'Làm mới' : 'Đồng bộ';
         reloadButton.title = tab === 'report' ? 'Làm mới báo cáo' : 'Đồng bộ lại dữ liệu';
       }
-      ['section-report', 'section-price', 'section-bom', 'section-tinhgia', 'section-kh', 'section-dmvt'].forEach(id => { const el = document.getElementById(id); if(el) el.classList.add('d-none'); });
-      ['btn-tab-report', 'btn-tab-price', 'btn-tab-bom', 'btn-tab-tinhgia', 'btn-tab-kh', 'btn-tab-dmvt'].forEach(id => { const el = document.getElementById(id); if(el) el.classList.remove('active'); });
+      ['section-report', 'section-price', 'section-bom', 'section-tinhgia', 'section-kh', 'section-dmvt', 'section-admin'].forEach(id => { const el = document.getElementById(id); if(el) el.classList.add('d-none'); });
+      ['btn-tab-report', 'btn-tab-price', 'btn-tab-bom', 'btn-tab-tinhgia', 'btn-tab-kh', 'btn-tab-dmvt', 'btn-tab-admin'].forEach(id => { const el = document.getElementById(id); if(el) el.classList.remove('active'); });
       document.getElementById('section-' + tab).classList.remove('d-none'); 
       const btn = document.getElementById('btn-tab-' + tab); if(btn) btn.classList.add('active');
 
@@ -1426,6 +1445,10 @@
       } else if (tab === 'dmvt') {
         loadAllDmvtData();
         document.getElementById('btn-global-import').classList.remove('d-none');
+      } else if (tab === 'admin') {
+        loadAdminUsers();
+        document.getElementById('global-search-input').classList.remove('d-none');
+        document.getElementById('btn-global-export').classList.add('d-none');
       }
       scheduleResizableTables();
     }
@@ -1436,6 +1459,7 @@
       else if (activeTabId === 'tinhgia') filterTgData();
       else if (activeTabId === 'kh') filterKhData();
       else if (activeTabId === 'dmvt') filterDmvtData();
+      else if (activeTabId === 'admin') filterAdminUsers();
     }
 
     function handleGlobalReload() {
@@ -1445,6 +1469,7 @@
       else if (activeTabId === 'tinhgia') loadAllTinhGiaData();
       else if (activeTabId === 'kh') loadAllKhachHangData();
       else if (activeTabId === 'dmvt') loadAllDmvtData();
+      else if (activeTabId === 'admin') loadAdminUsers();
       showAlert(activeTabId === 'report' ? 'Đã làm mới báo cáo!' : 'Đã đồng bộ lại dữ liệu thành công!');
     }
 
@@ -1555,6 +1580,8 @@
         load(done => loadAllKhachHangData(done));
       } else if (activeTabId === 'dmvt') {
         load(done => loadAllDmvtData(done));
+      } else if (activeTabId === 'admin') {
+        load(done => loadAdminUsers(done));
       }
       if (!remaining) dataSyncRefreshInProgress = false;
     }
@@ -1915,6 +1942,130 @@
         showAlert('Không tải được danh sách nhân viên: ' + err.message, true);
         if (typeof done === 'function') done();
       }).getUserList();
+    }
+
+    function canManageUserAdmin() {
+      return !isDemoReadOnly() && String(currentUser && currentUser.chucVu || '').trim().toLowerCase() === 'quanly';
+    }
+
+    function loadAdminUsers(done) {
+      if (!canManageUserAdmin()) {
+        if (typeof done === 'function') done();
+        return;
+      }
+      const body = document.getElementById('admin-user-table-body');
+      body.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Đang tải...</td></tr>';
+      google.script.run.withSuccessHandler(users => {
+        fullAdminUserData = users || [];
+        filterAdminUsers();
+        if (typeof done === 'function') done();
+      }).withFailureHandler(error => {
+        body.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Không tải được danh sách người dùng.</td></tr>';
+        showAlert('Không tải được danh sách người dùng: ' + error.message, true);
+        if (typeof done === 'function') done();
+      }).getAdminUserList(currentUser);
+    }
+
+    function filterAdminUsers() {
+      const query = document.getElementById('global-search-input').value.toLowerCase().trim();
+      filteredAdminUserData = query
+        ? fullAdminUserData.filter(user => [user.maNV, user.hoTen, user.chucVu, user.bp].some(value => String(value || '').toLowerCase().includes(query)))
+        : [...fullAdminUserData];
+      renderAdminUsers();
+    }
+
+    function renderAdminUsers() {
+      const body = document.getElementById('admin-user-table-body');
+      const roleNames = { quanly: 'Quản lý', bod: 'BOD', quanlyrd: 'Quản lý RD', rd: 'RD' };
+      if (!filteredAdminUserData.length) {
+        body.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Không có người dùng.</td></tr>';
+        document.getElementById('admin-user-count').textContent = '0 người dùng';
+        return;
+      }
+      body.innerHTML = filteredAdminUserData.map(user => {
+        const encoded = encodeURIComponent(JSON.stringify(user)).replace(/'/g, '%27');
+        const actions = `<button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" title="Sửa người dùng" onclick="editAdminUser('${encoded}')"><i class="fa-solid fa-pen"></i></button><button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" title="Xóa người dùng" onclick="deleteAdminUser('${encodeURIComponent(user.maNV).replace(/'/g, '%27')}')"><i class="fa-solid fa-trash"></i></button>`;
+        return `<tr><td class="sticky-col-1 text-center">${renderRowActionMenu(actions)}</td><td class="sticky-col-2 fw-semibold">${escapeReportHtml(user.maNV)}</td><td>${escapeReportHtml(user.hoTen)}</td><td>${escapeReportHtml(roleNames[user.chucVu] || user.chucVu)}</td><td>${escapeReportHtml(user.bp)}</td></tr>`;
+      }).join('');
+      document.getElementById('admin-user-count').textContent = `${filteredAdminUserData.length} / ${fullAdminUserData.length} người dùng`;
+    }
+
+    function openUserForm() {
+      if (!canManageUserAdmin()) return showAlert('Bạn không có quyền quản trị người dùng.', true);
+      document.getElementById('user-form-is-update').value = 'false';
+      document.getElementById('user-form-title').innerHTML = '<i class="fa-solid fa-user-plus me-1"></i>Thêm người dùng';
+      document.getElementById('user-form-code').value = '';
+      document.getElementById('user-form-code').readOnly = false;
+      document.getElementById('user-form-name').value = '';
+      document.getElementById('user-form-role').value = 'rd';
+      document.getElementById('user-form-department').value = '';
+      document.getElementById('user-form-password').value = '';
+      document.getElementById('user-form-password').required = true;
+      document.getElementById('user-form-password-label').textContent = 'Mật khẩu *';
+      document.getElementById('user-form-password-help').textContent = 'Mật khẩu tối thiểu 6 ký tự.';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('modalUserForm')).show();
+    }
+
+    function editAdminUser(encodedUser) {
+      if (!canManageUserAdmin()) return showAlert('Bạn không có quyền quản trị người dùng.', true);
+      const user = JSON.parse(decodeURIComponent(encodedUser));
+      document.getElementById('user-form-is-update').value = 'true';
+      document.getElementById('user-form-title').innerHTML = '<i class="fa-solid fa-user-pen me-1"></i>Sửa người dùng';
+      document.getElementById('user-form-code').value = user.maNV;
+      document.getElementById('user-form-code').readOnly = true;
+      document.getElementById('user-form-name').value = user.hoTen;
+      document.getElementById('user-form-role').value = user.chucVu;
+      document.getElementById('user-form-department').value = user.bp;
+      document.getElementById('user-form-password').value = '';
+      document.getElementById('user-form-password').required = false;
+      document.getElementById('user-form-password-label').textContent = 'Mật khẩu mới';
+      document.getElementById('user-form-password-help').textContent = 'Để trống nếu không muốn đổi mật khẩu.';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('modalUserForm')).show();
+    }
+
+    function saveAdminUser() {
+      if (!canManageUserAdmin()) return showAlert('Bạn không có quyền quản trị người dùng.', true);
+      const button = document.getElementById('user-form-save');
+      const data = {
+        isUpdate: document.getElementById('user-form-is-update').value === 'true',
+        maNV: document.getElementById('user-form-code').value.trim(),
+        hoTen: document.getElementById('user-form-name').value.trim(),
+        chucVu: document.getElementById('user-form-role').value,
+        bp: document.getElementById('user-form-department').value.trim(),
+        matKhau: document.getElementById('user-form-password').value
+      };
+      button.disabled = true;
+      google.script.run.withSuccessHandler(result => {
+        button.disabled = false;
+        if (!result.success) return showAlert(result.message, true);
+        const selfEdit = data.isUpdate && String(data.maNV).toLowerCase() === String(currentUser.maNV).toLowerCase();
+        if (selfEdit) {
+          currentUser = { ...currentUser, hoTen: data.hoTen, chucVu: data.chucVu, bp: data.bp };
+          sessionStorage.setItem('logged_user', JSON.stringify(currentUser));
+          document.getElementById('user-info').innerHTML = `Đang đăng nhập: <strong class="text-primary">${escapeReportHtml(currentUser.hoTen)} (${escapeReportHtml(currentUser.maNV)})</strong>`;
+        }
+        bootstrap.Modal.getInstance(document.getElementById('modalUserForm')).hide();
+        showAlert(result.message);
+        loadAdminUsers();
+        loadUserList();
+      }).withFailureHandler(error => {
+        button.disabled = false;
+        showAlert('Không lưu được người dùng: ' + error.message, true);
+      }).saveUserItem(data, currentUser);
+    }
+
+    function deleteAdminUser(encodedCode) {
+      if (!canManageUserAdmin()) return showAlert('Bạn không có quyền quản trị người dùng.', true);
+      const code = decodeURIComponent(encodedCode);
+      if (!confirm(`Xóa tài khoản ${code}? Thao tác này không thể hoàn tác.`)) return;
+      google.script.run.withSuccessHandler(result => {
+        if (!result.success) return showAlert(result.message, true);
+        showAlert(result.message);
+        loadAdminUsers();
+        loadUserList();
+      }).withFailureHandler(error => {
+        showAlert('Không xóa được người dùng: ' + error.message, true);
+      }).deleteUserItem(code, currentUser);
     }
 
     function populateKhDataList(data) {

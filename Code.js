@@ -10,11 +10,12 @@ function doGet() {
 const API_BLOCKED_FUNCTIONS = [
   'doGet', 'doPost', 'authorizeDriveForAttachments',
   'getJsonDataFolder', 'getJsonFileContent', 'getJsonDataMonth', 'getJsonRowMonth',
-  'migrateSpreadsheetDataToJson', 'saveJsonDataFile', 'getDataWorkbook',
+  'migrateSpreadsheetDataToJson', 'migrateJsonDataLayout', 'getJsonDatasetFolder',
+  'getJsonDatasetFile', 'saveJsonStaticSheet', 'saveJsonMonthlySheet', 'saveJsonDataFile', 'getDataWorkbook',
   'JsonDataRange', 'JsonDataSheet', 'JsonDataWorkbook'
 ];
 const API_JSON_WRITE_FUNCTIONS = [
-  'checkLogin', 'changePassword', 'writeSystemLog',
+  'checkLogin', 'changePassword', 'writeSystemLog', 'saveUserItem', 'deleteUserItem',
   'saveKhachHangItem', 'importKhachHangFromExcelData', 'deleteKhachHangItem',
   'saveDmvtItem', 'importDmvtFromExcelData', 'deleteDmvtItem',
   'saveVatTu', 'importPriceRequestsFromExcelData', 'confirmVatTu', 'deleteVatTu',
@@ -26,16 +27,18 @@ const API_JSON_WRITE_FUNCTIONS = [
 ];
 
 const JSON_DATA_FOLDER_NAME = 'DATA';
-const JSON_DATA_VERSION = 1;
+const JSON_DATA_VERSION = 2;
 const JSON_DATA_CATALOG_FILE = 'catalog.json';
-const JSON_DATA_CACHE_PREFIX = 'OEM_JSON_V1:';
+const JSON_DATA_CACHE_PREFIX = 'OEM_JSON_V2:';
 const JSON_DATA_CACHE_TTL_SECONDS = 21600;
-const JSON_DATA_STATIC_SHEETS = ['Users', 'KhachHang', 'DMVT'];
+const JSON_DATA_STATIC_SHEETS = ['KhachHang'];
+const JSON_DATA_FILE_SHEETS = ['Users', 'DMVT'];
 const JSON_DATA_TEXT_HEADERS = [
   'MaNV', 'MaKH', 'MaVatTu', 'MaDuan', 'SoPhieu', 'ID', 'IDYeuCauGia',
   'NguoiTao', 'NguoiDuyet', 'MaNVYC', 'MaNVTH'
 ];
 const JSON_DATA_MIGRATION_PROPERTY = 'JSON_DATA_MIGRATION_V1';
+const JSON_DATA_LAYOUT_MIGRATION_PROPERTY = 'JSON_DATA_LAYOUT_MIGRATION_V2';
 const JSON_DATA_FOLDER_ID_PROPERTY = 'JSON_DATA_FOLDER_ID';
 const JSON_DATA_SYNC_VERSION_PROPERTY = 'JSON_DATA_SYNC_VERSION';
 var ACTIVE_JSON_WORKBOOK = null;
@@ -97,6 +100,57 @@ function cacheJsonFileContent(cache, cacheKey, content) {
   cache.put(cacheKey + ':count', String(chunkCount), JSON_DATA_CACHE_TTL_SECONDS);
 }
 
+function getJsonDatasetFolder(parentFolder, sheetName, createIfMissing) {
+  const folders = parentFolder.getFoldersByName(sheetName);
+  if (folders.hasNext()) return folders.next();
+  return createIfMissing ? parentFolder.createFolder(sheetName) : null;
+}
+
+function getJsonDatasetFile(folder, fileName) {
+  const files = folder.getFilesByName(fileName);
+  return files.hasNext() ? files.next() : null;
+}
+
+function saveJsonStaticSheet(folder, sheetName, table, migrationSource) {
+  const data = {
+    version: JSON_DATA_VERSION,
+    sheet: sheetName,
+    headers: table.headers || [],
+    rows: table.rows || []
+  };
+  if (migrationSource) data.migrationSource = migrationSource;
+  saveJsonDataFile(folder, sheetName + '.json', data);
+}
+
+function saveJsonMonthlySheet(folder, sheetName, monthName, table, migrationSources) {
+  const datasetFolder = getJsonDatasetFolder(folder, sheetName, true);
+  const data = {
+    version: JSON_DATA_VERSION,
+    sheet: sheetName,
+    month: monthName,
+    headers: table.headers || [],
+    rows: table.rows || []
+  };
+  if (migrationSources && migrationSources.length) data.migrationSources = migrationSources;
+  saveJsonDataFile(datasetFolder, monthName + '.json', data);
+}
+
+function normalizeJsonSheetTable(data, sheetName) {
+  if (data && data.sheets && data.sheets[sheetName]) return data.sheets[sheetName];
+  if (data && Array.isArray(data.headers) && Array.isArray(data.rows)) return data;
+  return { headers: [], rows: [] };
+}
+
+function appendUniqueRows(target, source) {
+  const knownRows = new Set((target.rows || []).map(row => JSON.stringify(row)));
+  (source.rows || []).forEach(row => {
+    const key = JSON.stringify(row);
+    if (knownRows.has(key)) return;
+    target.rows.push(row);
+    knownRows.add(key);
+  });
+}
+
 function getJsonDataMonth(value) {
   if (value instanceof Date && !isNaN(value.getTime())) {
     return Utilities.formatDate(value, 'GMT+7', 'yyyy-MM');
@@ -153,23 +207,110 @@ function migrateSpreadsheetDataToJson(folder) {
       catalog.sheets[sheetName] = table;
       return;
     }
+    if (JSON_DATA_FILE_SHEETS.indexOf(sheetName) !== -1) {
+      saveJsonStaticSheet(folder, sheetName, table);
+      return;
+    }
 
     table.rows.forEach(row => {
       const monthName = getJsonRowMonth(sheetName, row);
-      if (!months[monthName]) months[monthName] = { version: JSON_DATA_VERSION, month: monthName, sheets: {} };
-      if (!months[monthName].sheets[sheetName]) {
-        months[monthName].sheets[sheetName] = { headers: table.headers, rows: [] };
-      }
-      months[monthName].sheets[sheetName].rows.push(row);
+      if (!months[sheetName]) months[sheetName] = {};
+      if (!months[sheetName][monthName]) months[sheetName][monthName] = { headers: table.headers, rows: [] };
+      months[sheetName][monthName].rows.push(row);
     });
   });
 
-  Object.keys(months).sort().forEach(monthName => {
-    const fileName = monthName + '.json';
-    saveJsonDataFile(folder, fileName, months[monthName]);
+  Object.keys(months).forEach(sheetName => {
+    Object.keys(months[sheetName]).sort().forEach(monthName => {
+      saveJsonMonthlySheet(folder, sheetName, monthName, months[sheetName][monthName]);
+    });
   });
   saveJsonDataFile(folder, JSON_DATA_CATALOG_FILE, catalog);
   PropertiesService.getScriptProperties().setProperty(JSON_DATA_MIGRATION_PROPERTY, 'complete');
+}
+
+function migrateJsonDataLayout(folder) {
+  const properties = PropertiesService.getScriptProperties();
+  if (properties.getProperty(JSON_DATA_LAYOUT_MIGRATION_PROPERTY) === 'complete') return;
+
+  const catalogFile = getJsonDatasetFile(folder, JSON_DATA_CATALOG_FILE);
+  let catalog = catalogFile ? getJsonFileContent(catalogFile) : { version: JSON_DATA_VERSION, sheets: {} };
+  if (!catalog || ![1, JSON_DATA_VERSION].includes(catalog.version) || !catalog.sheets) {
+    throw new Error('Cấu trúc DATA/catalog.json không hợp lệ.');
+  }
+
+  JSON_DATA_FILE_SHEETS.forEach(sheetName => {
+    const table = catalog.sheets[sheetName];
+    if (!table) return;
+    const destination = getJsonDatasetFile(folder, sheetName + '.json');
+    let destinationTable;
+    let migrationSource;
+    if (destination) {
+      const destinationData = getJsonFileContent(destination);
+      if (!destinationData || ![1, JSON_DATA_VERSION].includes(destinationData.version) ||
+          destinationData.sheet !== sheetName || !Array.isArray(destinationData.headers) ||
+          !Array.isArray(destinationData.rows)) {
+        throw new Error('Cấu trúc file DATA/' + sheetName + '.json không hợp lệ.');
+      }
+      destinationTable = normalizeJsonSheetTable(destinationData, sheetName);
+      migrationSource = destinationData.migrationSource;
+      if (migrationSource !== (catalogFile && catalogFile.getId())) appendUniqueRows(destinationTable, table);
+    } else {
+      destinationTable = { headers: table.headers || [], rows: table.rows || [] };
+      migrationSource = catalogFile && catalogFile.getId();
+    }
+    saveJsonStaticSheet(folder, sheetName, destinationTable, migrationSource);
+    delete catalog.sheets[sheetName];
+  });
+  catalog.version = JSON_DATA_VERSION;
+  saveJsonDataFile(folder, JSON_DATA_CATALOG_FILE, catalog);
+
+  const legacyFiles = folder.getFiles();
+  while (legacyFiles.hasNext()) {
+    const legacyFile = legacyFiles.next();
+    const match = legacyFile.getName().match(/^(\d{4}-\d{2})\.json$/);
+    if (!match) continue;
+
+    const monthData = getJsonFileContent(legacyFile);
+    if (!monthData || ![1, JSON_DATA_VERSION].includes(monthData.version) ||
+        monthData.month !== match[1] || !monthData.sheets ||
+        typeof monthData.sheets !== 'object') {
+      throw new Error('Cấu trúc file DATA/' + legacyFile.getName() + ' không hợp lệ; không di chuyển file.');
+    }
+    const sheetNames = Object.keys(monthData.sheets);
+    sheetNames.forEach(sheetName => {
+      const sourceTable = monthData.sheets[sheetName];
+      if (!sourceTable || !Array.isArray(sourceTable.headers) || !Array.isArray(sourceTable.rows)) {
+        throw new Error('Bảng ' + sheetName + ' trong DATA/' + legacyFile.getName() + ' không hợp lệ.');
+      }
+      const datasetFolder = getJsonDatasetFolder(folder, sheetName, true);
+      const destination = getJsonDatasetFile(datasetFolder, legacyFile.getName());
+      let destinationTable;
+      let migrationSources = [];
+      if (destination) {
+        const destinationData = getJsonFileContent(destination);
+        if (!destinationData || ![1, JSON_DATA_VERSION].includes(destinationData.version) ||
+            (destinationData.sheet && destinationData.sheet !== sheetName) ||
+            !Array.isArray(normalizeJsonSheetTable(destinationData, sheetName).headers) ||
+            !Array.isArray(normalizeJsonSheetTable(destinationData, sheetName).rows)) {
+          throw new Error('Cấu trúc file DATA/' + sheetName + '/' + legacyFile.getName() + ' không hợp lệ.');
+        }
+        destinationTable = normalizeJsonSheetTable(destinationData, sheetName);
+        migrationSources = destinationData.migrationSources || [];
+        if (migrationSources.indexOf(legacyFile.getId()) === -1) {
+          appendUniqueRows(destinationTable, sourceTable);
+          migrationSources.push(legacyFile.getId());
+        }
+      } else {
+        destinationTable = { headers: sourceTable.headers || [], rows: sourceTable.rows || [] };
+        migrationSources = [legacyFile.getId()];
+      }
+      saveJsonMonthlySheet(folder, sheetName, match[1], destinationTable, migrationSources);
+    });
+    legacyFile.setTrashed(true);
+  }
+
+  properties.setProperty(JSON_DATA_LAYOUT_MIGRATION_PROPERTY, 'complete');
 }
 
 function saveJsonDataFile(folder, fileName, data) {
@@ -307,8 +448,12 @@ function JsonDataWorkbook(folder) {
   this.catalog = { version: JSON_DATA_VERSION, sheets: {} };
   this.months = {};
   this.monthFiles = {};
+  this.datasetFolders = {};
+  this.datasetMonthFiles = {};
+  this.staticTables = {};
   this.dirtyCatalog = false;
   this.dirtyMonths = {};
+  this.dirtyStaticFiles = {};
   this.sheetSnapshots = {};
 
   const catalogFiles = folder.getFilesByName(JSON_DATA_CATALOG_FILE);
@@ -326,22 +471,85 @@ function JsonDataWorkbook(folder) {
     if (!match) continue;
     this.monthFiles[match[1]] = file;
   }
+
+  const folders = folder.getFolders();
+  while (folders.hasNext()) {
+    const datasetFolder = folders.next();
+    const sheetName = datasetFolder.getName();
+    this.datasetFolders[sheetName] = datasetFolder;
+    this.datasetMonthFiles[sheetName] = {};
+    const datasetFiles = datasetFolder.getFiles();
+    while (datasetFiles.hasNext()) {
+      const file = datasetFiles.next();
+      const match = file.getName().match(/^(\d{4}-\d{2})\.json$/);
+      if (match) this.datasetMonthFiles[sheetName][match[1]] = file;
+    }
+  }
+
+  JSON_DATA_FILE_SHEETS.forEach(sheetName => {
+    const file = getJsonDatasetFile(folder, sheetName + '.json');
+    if (!file) return;
+    const data = getJsonFileContent(file);
+    if (!data || data.version !== JSON_DATA_VERSION || data.sheet !== sheetName ||
+        !Array.isArray(data.headers) || !Array.isArray(data.rows)) {
+      throw new Error('Cấu trúc file DATA/' + sheetName + '.json không hợp lệ.');
+    }
+    this.staticTables[sheetName] = { headers: data.headers, rows: data.rows };
+  });
 }
 
 JsonDataWorkbook.prototype.isStaticSheet = function (name) {
   return JSON_DATA_STATIC_SHEETS.indexOf(name) !== -1;
 };
 
-JsonDataWorkbook.prototype.loadMonth = function (monthName) {
-  if (this.months[monthName]) return this.months[monthName];
-  const file = this.monthFiles[monthName];
+JsonDataWorkbook.prototype.isJsonFileSheet = function (name) {
+  return JSON_DATA_FILE_SHEETS.indexOf(name) !== -1;
+};
+
+JsonDataWorkbook.prototype.getMonthKey = function (monthName, sheetName) {
+  return sheetName + '::' + monthName;
+};
+
+JsonDataWorkbook.prototype.getSheetMonthNames = function (sheetName) {
+  const names = Object.keys(this.datasetMonthFiles[sheetName] || {});
+  Object.keys(this.monthFiles).forEach(monthName => {
+    if (names.indexOf(monthName) === -1) names.push(monthName);
+  });
+  const prefix = sheetName + '::';
+  Object.keys(this.months).forEach(key => {
+    if (key.indexOf(prefix) !== 0) return;
+    const monthName = key.slice(prefix.length);
+    if (names.indexOf(monthName) === -1) names.push(monthName);
+  });
+  return names.sort();
+};
+
+JsonDataWorkbook.prototype.loadMonth = function (monthName, sheetName) {
+  const key = this.getMonthKey(monthName, sheetName);
+  if (this.months[key]) return this.months[key];
+  const datasetFile = (this.datasetMonthFiles[sheetName] || {})[monthName];
+  const file = datasetFile || this.monthFiles[monthName];
   if (!file) return null;
   const monthData = getJsonFileContent(file);
-  if (!monthData || monthData.version !== JSON_DATA_VERSION || !monthData.sheets) {
+  if (!monthData || ![1, JSON_DATA_VERSION].includes(monthData.version)) {
     throw new Error('Cấu trúc file DATA/' + file.getName() + ' không hợp lệ.');
   }
-  this.months[monthName] = monthData;
-  return monthData;
+  if (datasetFile && (monthData.version !== JSON_DATA_VERSION || monthData.sheet !== sheetName ||
+      monthData.month !== monthName || !Array.isArray(monthData.headers) || !Array.isArray(monthData.rows))) {
+    throw new Error('Cấu trúc file DATA/' + sheetName + '/' + file.getName() + ' không hợp lệ.');
+  }
+  if (!datasetFile && (!monthData.sheets || !monthData.sheets[sheetName] ||
+      !Array.isArray(monthData.sheets[sheetName].headers) || !Array.isArray(monthData.sheets[sheetName].rows))) {
+    throw new Error('Bảng ' + sheetName + ' trong DATA/' + file.getName() + ' không hợp lệ.');
+  }
+  const table = normalizeJsonSheetTable(monthData, sheetName);
+  if (!table.headers.length && !table.rows.length) return null;
+  this.months[key] = {
+    version: JSON_DATA_VERSION,
+    month: monthName,
+    sheets: { [sheetName]: table }
+  };
+  return this.months[key];
 };
 
 JsonDataWorkbook.prototype.getSheetSnapshot = function (name) {
@@ -355,16 +563,21 @@ JsonDataWorkbook.prototype.getSheetSnapshot = function (name) {
     };
     return this.sheetSnapshots[name];
   }
+  if (this.isJsonFileSheet(name)) {
+    const table = this.staticTables[name] || { headers: [], rows: [] };
+    this.sheetSnapshots[name] = {
+      headers: table.headers || [],
+      rows: table.rows || [],
+      refs: (table.rows || []).map((row, index) => ({ index: index }))
+    };
+    return this.sheetSnapshots[name];
+  }
 
   const headers = [];
   const rows = [];
   const refs = [];
-  const monthNames = Object.keys(this.monthFiles);
-  Object.keys(this.months).forEach(monthName => {
-    if (monthNames.indexOf(monthName) === -1) monthNames.push(monthName);
-  });
-  monthNames.sort().forEach(monthName => {
-    const monthData = this.months[monthName] || this.loadMonth(monthName);
+  this.getSheetMonthNames(name).forEach(monthName => {
+    const monthData = this.loadMonth(monthName, name);
     const table = monthData && monthData.sheets[name];
     if (!table) return;
     if (!headers.length) Array.prototype.push.apply(headers, table.headers || []);
@@ -392,6 +605,10 @@ JsonDataWorkbook.prototype.insertSheet = function (name) {
     this.catalog.sheets[name] = { headers: [], rows: [] };
     this.dirtyCatalog = true;
     this.invalidateSheetSnapshot(name);
+  } else if (this.isJsonFileSheet(name)) {
+    this.staticTables[name] = { headers: [], rows: [] };
+    this.dirtyStaticFiles[name] = true;
+    this.invalidateSheetSnapshot(name);
   } else {
     const monthName = Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM');
     this.getOrCreateMonthTable(monthName, name);
@@ -400,21 +617,22 @@ JsonDataWorkbook.prototype.insertSheet = function (name) {
 };
 
 JsonDataWorkbook.prototype.getOrCreateMonthTable = function (monthName, sheetName) {
+  const key = this.getMonthKey(monthName, sheetName);
   let created = false;
-  if (!this.months[monthName]) {
-    const existingMonth = this.loadMonth(monthName);
+  if (!this.months[key]) {
+    const existingMonth = this.loadMonth(monthName, sheetName);
     if (!existingMonth) {
-      this.months[monthName] = { version: JSON_DATA_VERSION, month: monthName, sheets: {} };
+      this.months[key] = { version: JSON_DATA_VERSION, month: monthName, sheets: {} };
       created = true;
     }
   }
-  if (!this.months[monthName].sheets[sheetName]) {
-    this.months[monthName].sheets[sheetName] = { headers: [], rows: [] };
+  if (!this.months[key].sheets[sheetName]) {
+    this.months[key].sheets[sheetName] = { headers: [], rows: [] };
     created = true;
   }
   if (created) this.invalidateSheetSnapshot(sheetName);
-  this.dirtyMonths[monthName] = true;
-  return this.months[monthName].sheets[sheetName];
+  this.dirtyMonths[key] = { monthName: monthName, sheetName: sheetName };
+  return this.months[key].sheets[sheetName];
 };
 
 JsonDataWorkbook.prototype.setSheetCell = function (name, rowNumber, columnNumber, value) {
@@ -426,19 +644,31 @@ JsonDataWorkbook.prototype.setSheetCell = function (name, rowNumber, columnNumbe
     this.invalidateSheetSnapshot(name);
     return;
   }
+  if (this.isJsonFileSheet(name)) {
+    const table = this.staticTables[name] || (this.staticTables[name] = { headers: [], rows: [] });
+    this.setTableCell(table, rowNumber, columnNumber, value);
+    this.dirtyStaticFiles[name] = true;
+    this.invalidateSheetSnapshot(name);
+    return;
+  }
 
   const snapshot = this.getSheetSnapshot(name);
   if (rowNumber === 1) {
-    Object.keys(this.months).forEach(monthName => {
-      const table = this.months[monthName].sheets[name];
+    const monthNames = this.getSheetMonthNames(name);
+    monthNames.forEach(monthName => {
+      const monthData = this.loadMonth(monthName, name);
+      const table = monthData && monthData.sheets[name];
       if (table) this.setTableCell(table, rowNumber, columnNumber, value);
     });
-    if (!Object.keys(this.months).some(monthName => this.months[monthName].sheets[name])) {
+    if (!monthNames.some(monthName => this.months[this.getMonthKey(monthName, name)] && this.months[this.getMonthKey(monthName, name)].sheets[name])) {
       const monthName = Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM');
       this.setTableCell(this.getOrCreateMonthTable(monthName, name), rowNumber, columnNumber, value);
     } else {
-      Object.keys(this.months).forEach(monthName => {
-        if (this.months[monthName].sheets[name]) this.dirtyMonths[monthName] = true;
+      monthNames.forEach(monthName => {
+        const key = this.getMonthKey(monthName, name);
+        if (this.months[key] && this.months[key].sheets[name]) {
+          this.dirtyMonths[key] = { monthName: monthName, sheetName: name };
+        }
       });
     }
     this.invalidateSheetSnapshot(name);
@@ -469,20 +699,30 @@ JsonDataWorkbook.prototype.setSheetRange = function (name, startRow, startColumn
     this.invalidateSheetSnapshot(name);
     return;
   }
+  if (this.isJsonFileSheet(name)) {
+    const table = this.staticTables[name] || (this.staticTables[name] = { headers: [], rows: [] });
+    values.forEach((row, rowOffset) => row.forEach((value, columnOffset) => {
+      this.setTableCell(table, startRow + rowOffset, startColumn + columnOffset, value);
+    }));
+    this.dirtyStaticFiles[name] = true;
+    this.invalidateSheetSnapshot(name);
+    return;
+  }
 
   const newRefs = {};
   values.forEach((row, rowOffset) => {
     const rowNumber = startRow + rowOffset;
     if (rowNumber === 1) {
-      const monthNames = Object.keys(this.months);
+      const monthNames = this.getSheetMonthNames(name);
       let updated = false;
       monthNames.forEach(monthName => {
-        const table = this.months[monthName].sheets[name];
+        const monthData = this.loadMonth(monthName, name);
+        const table = monthData && monthData.sheets[name];
         if (!table) return;
         row.forEach((value, columnOffset) => {
           this.setTableCell(table, rowNumber, startColumn + columnOffset, value);
         });
-        this.dirtyMonths[monthName] = true;
+        this.dirtyMonths[this.getMonthKey(monthName, name)] = { monthName: monthName, sheetName: name };
         updated = true;
       });
       if (!updated) {
@@ -538,18 +778,33 @@ JsonDataWorkbook.prototype.deleteSheetRow = function (name, rowNumber) {
     }
     return;
   }
+  if (this.isJsonFileSheet(name)) {
+    const table = this.staticTables[name];
+    if (table && table.rows[rowNumber - 2]) {
+      table.rows.splice(rowNumber - 2, 1);
+      this.dirtyStaticFiles[name] = true;
+      this.invalidateSheetSnapshot(name);
+    }
+    return;
+  }
   const ref = snapshot.refs[rowNumber - 2];
   if (!ref) return;
-  this.months[ref.month].sheets[name].rows.splice(ref.index, 1);
-  this.dirtyMonths[ref.month] = true;
+  const key = this.getMonthKey(ref.month, name);
+  this.months[key].sheets[name].rows.splice(ref.index, 1);
+  this.dirtyMonths[key] = { monthName: ref.month, sheetName: name };
   this.invalidateSheetSnapshot(name);
 };
 
 JsonDataWorkbook.prototype.save = function () {
-  Object.keys(this.dirtyMonths).sort().forEach(monthName => {
-    saveJsonDataFile(this.folder, monthName + '.json', this.months[monthName]);
+  Object.keys(this.dirtyMonths).sort().forEach(key => {
+    const entry = this.dirtyMonths[key];
+    const table = this.months[key].sheets[entry.sheetName];
+    saveJsonMonthlySheet(this.folder, entry.sheetName, entry.monthName, table);
   });
   if (this.dirtyCatalog) saveJsonDataFile(this.folder, JSON_DATA_CATALOG_FILE, this.catalog);
+  Object.keys(this.dirtyStaticFiles).forEach(sheetName => {
+    saveJsonStaticSheet(this.folder, sheetName, this.staticTables[sheetName]);
+  });
 };
 
 function getDataWorkbook() {
@@ -560,6 +815,12 @@ function getDataWorkbook() {
       acquireJsonDataLock();
       if (PropertiesService.getScriptProperties().getProperty(JSON_DATA_MIGRATION_PROPERTY) !== 'complete') {
         migrateSpreadsheetDataToJson(folder);
+      }
+    }
+    if (PropertiesService.getScriptProperties().getProperty(JSON_DATA_LAYOUT_MIGRATION_PROPERTY) !== 'complete') {
+      acquireJsonDataLock();
+      if (PropertiesService.getScriptProperties().getProperty(JSON_DATA_LAYOUT_MIGRATION_PROPERTY) !== 'complete') {
+        migrateJsonDataLayout(folder);
       }
     }
     ACTIVE_JSON_WORKBOOK = new JsonDataWorkbook(folder);
@@ -750,11 +1011,103 @@ function getUserList() {
   if (sheetUsers.getLastRow() <= 1) return [];
   const data = sheetUsers.getDataRange().getValues();
   const displayedEmployeeCodes = sheetUsers.getRange(1, 1, sheetUsers.getLastRow(), 1).getDisplayValues();
-  return data.slice(1).filter((row, index) => row[0] || displayedEmployeeCodes[index + 1][0]).map((row, index) => ({
+  return data.slice(1).map((row, index) => ({
     maNV: String(displayedEmployeeCodes[index + 1][0] || row[0] || '').replace(/^'/, '').trim(),
     hoTen: String(row[2] || "").trim(),
     bp: String(row[4] || "").trim()
-  }));
+  })).filter(user => user.maNV);
+}
+
+function canManageUsers(loggedUser) {
+  return !isDemoReadOnlyUser(loggedUser) &&
+    String(loggedUser && loggedUser.chucVu || '').trim().toLowerCase() === 'quanly';
+}
+
+function getAdminUserList(loggedUser) {
+  if (!canManageUsers(loggedUser)) throw new Error('Từ chối: Bạn không có quyền quản trị người dùng.');
+  const sheet = getDataWorkbook().getSheetByName('Users');
+  if (!sheet || sheet.getLastRow() <= 1) return [];
+  const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, Math.max(5, sheet.getLastColumn())).getValues();
+  const displayedCodes = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getDisplayValues();
+  return rows.map((row, index) => ({
+    maNV: String(displayedCodes[index][0] || row[0] || '').replace(/^'/, '').trim(),
+    hoTen: String(row[2] || '').trim(),
+    chucVu: String(row[3] || '').trim().toLowerCase(),
+    bp: String(row[4] || '').trim()
+  })).filter(user => user.maNV);
+}
+
+function saveUserItem(formData, loggedUser) {
+  if (!canManageUsers(loggedUser)) return { success: false, message: 'Từ chối: Bạn không có quyền quản trị người dùng.' };
+  try {
+    const sheet = getDataWorkbook().getSheetByName('Users');
+    if (!sheet) return { success: false, message: "Không tìm thấy danh sách 'Users'." };
+    const code = String(formData.maNV || '').replace(/^'/, '').trim();
+    const name = String(formData.hoTen || '').trim();
+    const role = String(formData.chucVu || '').trim().toLowerCase();
+    const department = String(formData.bp || '').trim();
+    const password = String(formData.matKhau || '').trim();
+    const isUpdate = formData.isUpdate === true;
+    const allowedRoles = ['quanly', 'bod', 'quanlyrd', 'rd'];
+    if (!code || !name || !role) return { success: false, message: 'Vui lòng nhập đầy đủ Mã NV, Họ tên và Chức vụ.' };
+    if (!allowedRoles.includes(role)) return { success: false, message: 'Chức vụ không hợp lệ.' };
+    if (!isUpdate && password.length < 6) return { success: false, message: 'Mật khẩu phải có ít nhất 6 ký tự.' };
+    if (password && password.length < 6) return { success: false, message: 'Mật khẩu mới phải có ít nhất 6 ký tự.' };
+
+    const rows = sheet.getLastRow() > 1
+      ? sheet.getRange(2, 1, sheet.getLastRow() - 1, Math.max(5, sheet.getLastColumn())).getValues()
+      : [];
+    const index = rows.findIndex(row => String(row[0] || '').replace(/^'/, '').trim().toLowerCase() === code.toLowerCase());
+    if (isUpdate && index < 0) return { success: false, message: `Không tìm thấy tài khoản [${code}].` };
+    if (!isUpdate && index >= 0) return { success: false, message: `Mã nhân viên [${code}] đã tồn tại.` };
+
+    const old = index >= 0 ? rows[index] : [];
+    const oldRole = String(old[3] || '').trim().toLowerCase();
+    const managerCount = rows.filter(row => String(row[3] || '').trim().toLowerCase() === 'quanly').length;
+    const isSelf = String(old[0] || '').replace(/^'/, '').trim().toLowerCase() ===
+      String(loggedUser.maNV || '').replace(/^'/, '').trim().toLowerCase();
+    if (isSelf && role !== 'quanly') return { success: false, message: 'Không thể tự thay đổi chức vụ quản lý của tài khoản đang đăng nhập.' };
+    if (isUpdate && oldRole === 'quanly' && role !== 'quanly' && managerCount <= 1) {
+      return { success: false, message: 'Không thể hạ chức vụ tài khoản quản lý cuối cùng.' };
+    }
+    const savedPassword = password ? "'" + hashPasswordSha256(password) : old[1];
+    const values = [code, savedPassword, name, role, department];
+    if (isUpdate) {
+      sheet.getRange(index + 2, 1, 1, values.length).setValues([values]);
+    } else {
+      sheet.appendRow(values);
+    }
+    writeSystemLog(loggedUser.maNV, loggedUser.hoTen, 'QUẢN TRỊ NGƯỜI DÙNG', isUpdate ? 'CẬP NHẬT' : 'TẠO MỚI', code, `Chức vụ: ${role}; Bộ phận: ${department}`);
+    return { success: true, message: `${isUpdate ? 'Cập nhật' : 'Tạo'} tài khoản [${code}] thành công.` };
+  } catch (error) {
+    return { success: false, message: 'Lỗi lưu tài khoản: ' + error.toString() };
+  }
+}
+
+function deleteUserItem(maNVToDelete, loggedUser) {
+  if (!canManageUsers(loggedUser)) return { success: false, message: 'Từ chối: Bạn không có quyền quản trị người dùng.' };
+  try {
+    const code = String(maNVToDelete || '').replace(/^'/, '').trim();
+    const currentCode = String(loggedUser.maNV || '').replace(/^'/, '').trim();
+    if (!code) return { success: false, message: 'Mã nhân viên không hợp lệ.' };
+    if (code.toLowerCase() === currentCode.toLowerCase()) return { success: false, message: 'Không thể xóa tài khoản đang đăng nhập.' };
+
+    const sheet = getDataWorkbook().getSheetByName('Users');
+    if (!sheet || sheet.getLastRow() <= 1) return { success: false, message: `Không tìm thấy tài khoản [${code}].` };
+    const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, Math.max(5, sheet.getLastColumn())).getValues();
+    const index = rows.findIndex(row => String(row[0] || '').replace(/^'/, '').trim().toLowerCase() === code.toLowerCase());
+    if (index < 0) return { success: false, message: `Không tìm thấy tài khoản [${code}].` };
+    const targetRole = String(rows[index][3] || '').trim().toLowerCase();
+    if (targetRole === 'quanly' && rows.filter(row => String(row[3] || '').trim().toLowerCase() === 'quanly').length <= 1) {
+      return { success: false, message: 'Không thể xóa tài khoản quản lý cuối cùng.' };
+    }
+
+    sheet.deleteRow(index + 2);
+    writeSystemLog(loggedUser.maNV, loggedUser.hoTen, 'QUẢN TRỊ NGƯỜI DÙNG', 'XÓA', code, 'Đã xóa tài khoản.');
+    return { success: true, message: `Đã xóa tài khoản [${code}].` };
+  } catch (error) {
+    return { success: false, message: 'Lỗi xóa tài khoản: ' + error.toString() };
+  }
 }
 
 function formatUserDisplay(user) {
